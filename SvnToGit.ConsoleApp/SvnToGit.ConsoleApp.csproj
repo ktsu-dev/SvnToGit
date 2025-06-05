@@ -1,0 +1,10 @@
+﻿<Project Sdk="ktsu.Sdk.ConsoleApp">
+	<ItemGroup>
+      <PackageReference Include="Spectre.Console" />
+      <PackageReference Include="ktsu.Extensions" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\SvnToGit.Core\SvnToGit.Core.csproj" />
+	</ItemGroup>
+</Project>

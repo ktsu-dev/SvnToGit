@@ -1,0 +1,28 @@
+---
+description: AI rules derived by SpecStory from the project AI interaction history
+globs: *
+---
+
+## HEADERS
+
+## TECH STACK
+
+*   Spectre.Console (for TUI)
+*   LibGit2Sharp (for Git repository manipulation)
+*   System.Diagnostics.Process (for running external processes)
+
+## PROJECT DOCUMENTATION & CONTEXT SYSTEM
+
+## CODING STANDARDS
+
+*   When using `string.Contains` or `string.Replace`, prefer the method overload that takes a `StringComparison` parameter for clarity of intent.
+*   When using async methods, ensure that you use the `await` operator to await non-blocking API calls, or `await Task.Run(...)` to do CPU-bound work on a background thread.
+*   Avoid catching generic exceptions. Catch a more specific allowed exception type, or rethrow the exception.
+*   Forward the `cancellationToken` parameter to async methods like `ReadToEndAsync`, or pass in `CancellationToken.None` explicitly to indicate intentionally not propagating the token.
+*   Instead of using `List<string>`, prefer `Collection<T>`, `ReadOnlyCollection<T>` or `KeyedCollection<K,V>`.
+
+## WORKFLOW & RELEASE RULES
+
+## DEBUGGING
+
+## REFERENCES
