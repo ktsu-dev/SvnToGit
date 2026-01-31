@@ -1,3 +1,8 @@
+## v1.0.2 (patch)
+
+Changes since v1.0.1:
+
+- compitibility suppressions ([@matt-edmondson](https://github.com/matt-edmondson))
 ## v1.0.1 (patch)
 
 Changes since v1.0.0:
@@ -37,9 +42,7 @@ Changes since v1.0.1-pre.2:
 Changes since v1.0.1-pre.1:
 ## v1.0.1-pre.1 (prerelease)
 
-Changes since v1.0.0:
-
-- Bump the ktsu group with 1 update ([@dependabot[bot]](https://github.com/dependabot[bot]))
+Incremental prerelease update.
 ## v1.0.0 (major)
 
 - Initial commit for SvnToGit ([@matt-edmondson](https://github.com/matt-edmondson))
