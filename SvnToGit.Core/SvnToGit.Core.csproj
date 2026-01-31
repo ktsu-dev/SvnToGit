@@ -1,7 +1,15 @@
-<Project Sdk="ktsu.Sdk.Lib">
+<Project Sdk="Microsoft.NET.Sdk">
+	<Sdk Name="ktsu.Sdk" />
 
 	<ItemGroup>
 		<PackageReference Include="ktsu.RunCommand" />
+		<PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+		<PackageReference Include="Microsoft.SourceLink.AzureRepos.Git" PrivateAssets="All" />
+		<PackageReference Include="Polyfill" PrivateAssets="All" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="ktsu.SvnToGit.Test" />
 	</ItemGroup>
 
 </Project>

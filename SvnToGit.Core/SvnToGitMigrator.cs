@@ -13,7 +13,7 @@ namespace ktsu.SvnToGit.Core;
 /// <param name="config">Migration configuration</param>
 public class SvnToGitMigrator(SvnMigrationConfig config)
 {
-	private readonly SvnMigrationConfig _config = config ?? throw new ArgumentNullException(nameof(config));
+	private readonly SvnMigrationConfig _config = config;
 
 	/// <summary>
 	/// Validates the migration configuration
@@ -21,7 +21,7 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 	/// <returns>List of validation errors, empty if valid</returns>
 	public IReadOnlyList<string> ValidateConfiguration()
 	{
-		var errors = new List<string>();
+		List<string> errors = [];
 
 		if (string.IsNullOrWhiteSpace(_config.SvnRepositoryPath))
 		{
@@ -61,7 +61,7 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 		IProgress<MigrationProgress>? progress = null,
 		CancellationToken cancellationToken = default)
 	{
-		var errors = ValidateConfiguration();
+		IReadOnlyList<string> errors = ValidateConfiguration();
 		if (errors.Count > 0)
 		{
 			return new MigrationResult(false, null, null)
@@ -110,8 +110,9 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 	{
 		try
 		{
-			var result = ProcessRunner.RunCommandAsync("git", ["svn", "--version"]);
-			return result.ExitCode == 0;
+			Task<ProcessResult> task = ProcessRunner.RunCommandAsync("git", ["svn", "--version"]);
+			task.Wait();
+			return task.Result.ExitCode == 0;
 		}
 		catch (InvalidOperationException)
 		{
@@ -128,18 +129,23 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 			// Git executable not found
 			return false;
 		}
+		catch (AggregateException)
+		{
+			// Task.Wait() throws AggregateException
+			return false;
+		}
 	}
 
 	private async Task CloneSvnRepositoryAsync(IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)
 	{
-		var gitSvnArgs = new List<string>
-		{
+		List<string> gitSvnArgs =
+		[
 			"svn",
 			"clone",
 			_config.SvnRepositoryPath,
 			_config.GitRepositoryPath,
 			"--stdlayout"
-		};
+		];
 
 		if (!string.IsNullOrWhiteSpace(_config.AuthorsFile))
 		{
@@ -157,22 +163,23 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 	private async Task CleanupGitSvnReferencesAsync(IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)
 	{
 		// Convert remote branches to local branches
-		var branchesArgs = new List<string> { "-C", _config.GitRepositoryPath, "branch", "-r" };
-		var result = await RunGitCommandAsync(branchesArgs, progress, cancellationToken).ConfigureAwait(false);
+		List<string> branchesArgs = ["-C", _config.GitRepositoryPath, "branch", "-r"];
+		GitCommandResult result = await RunGitCommandAsync(branchesArgs, progress, cancellationToken).ConfigureAwait(false);
 
 		// Parse remote branches and create local ones
 		if (result.Success)
 		{
-			var remoteBranches = result.StandardOutput
+			List<string> remoteBranches = [.. result.StandardOutput
 				.Split('\n', StringSplitOptions.RemoveEmptyEntries)
 				.Select(line => line.Trim())
-				.Where(line => !line.Contains("git-svn") && !line.Contains("trunk") && line.StartsWith("origin/", StringComparison.OrdinalIgnoreCase))
-				.ToList();
+				.Where(line => line.IndexOf("git-svn", StringComparison.Ordinal) < 0 && line.IndexOf("trunk", StringComparison.Ordinal) < 0 && line.StartsWith("origin/", StringComparison.OrdinalIgnoreCase))];
 
-			foreach (var remoteBranch in remoteBranches)
+			foreach (string remoteBranch in remoteBranches)
 			{
-				var branchName = remoteBranch.Replace("origin/", "", StringComparison.OrdinalIgnoreCase);
-				var createBranchArgs = new List<string> { "-C", _config.GitRepositoryPath, "checkout", "-b", branchName, remoteBranch };
+				string branchName = remoteBranch.StartsWith("origin/", StringComparison.OrdinalIgnoreCase)
+					? remoteBranch[7..]
+					: remoteBranch;
+				List<string> createBranchArgs = ["-C", _config.GitRepositoryPath, "checkout", "-b", branchName, remoteBranch];
 				await RunGitCommandAsync(createBranchArgs, progress, cancellationToken).ConfigureAwait(false);
 			}
 		}
@@ -181,7 +188,7 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 	private async Task FinalizeRepositoryAsync(IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)
 	{
 		// Run git gc to clean up the repository
-		var gcArgs = new List<string> { "-C", _config.GitRepositoryPath, "gc", "--aggressive" };
+		List<string> gcArgs = ["-C", _config.GitRepositoryPath, "gc", "--aggressive"];
 		await RunGitCommandAsync(gcArgs, progress, cancellationToken).ConfigureAwait(false);
 	}
 
@@ -192,7 +199,7 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 	{
 		try
 		{
-			var result = await ProcessRunner.RunCommandAsync("git", arguments, cancellationToken).ConfigureAwait(false);
+			ProcessResult result = await ProcessRunner.RunCommandAsync("git", arguments, cancellationToken).ConfigureAwait(false);
 
 			if (result.ExitCode != 0)
 			{
@@ -260,7 +267,7 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 		}
 	}
 
-	private record GitCommandResult
+	private sealed record GitCommandResult
 	{
 		public required bool Success { get; init; }
 		public required string StandardOutput { get; init; }

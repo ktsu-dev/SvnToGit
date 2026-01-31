@@ -1,10 +1,16 @@
-﻿<Project Sdk="ktsu.Sdk.ConsoleApp">
-	<ItemGroup>
-      <PackageReference Include="Spectre.Console" />
-      <PackageReference Include="ktsu.Extensions" />
-	</ItemGroup>
+<Project Sdk="Microsoft.NET.Sdk">
+  <Sdk Name="ktsu.Sdk" />
+  <Sdk Name="ktsu.Sdk.ConsoleApp" />
 
-	<ItemGroup>
-		<ProjectReference Include="..\SvnToGit.Core\SvnToGit.Core.csproj" />
-	</ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Spectre.Console" />
+    <PackageReference Include="ktsu.Extensions" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.SourceLink.AzureRepos.Git" PrivateAssets="All" />
+    <PackageReference Include="Polyfill" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SvnToGit.Core\SvnToGit.Core.csproj" />
+  </ItemGroup>
 </Project>

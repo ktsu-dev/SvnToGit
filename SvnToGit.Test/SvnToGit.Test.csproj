@@ -1,2 +1,13 @@
-<Project Sdk="ktsu.Sdk.Test">
+<Project Sdk="MSTest.Sdk">
+	<Sdk Name="ktsu.Sdk" />
+
+	<PropertyGroup>
+		<IsTestProject>true</IsTestProject>
+		<TargetFramework>net10.0</TargetFramework>
+		<TargetFrameworks></TargetFrameworks>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\SvnToGit.Core\SvnToGit.Core.csproj" />
+	</ItemGroup>
 </Project>

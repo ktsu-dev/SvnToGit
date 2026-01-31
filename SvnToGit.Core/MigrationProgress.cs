@@ -4,8 +4,6 @@
 
 namespace ktsu.SvnToGit.Core;
 
-using System.Collections.ObjectModel;
-
 /// <summary>
 /// Progress information for SVN to Git migration
 /// </summary>
@@ -14,6 +12,10 @@ using System.Collections.ObjectModel;
 /// <param name="ProgressPercentage"> Progress percentage (0-100) </param>
 /// <param name="CommitsProcessed"> Total number of commits processed </param>
 /// <param name="IsComplete"> Whether the migration is complete </param>
-/// <param name="Errors"> </param>
-public record MigrationProgress(string Phase, string CurrentStep, int ProgressPercentage, int CommitsProcessed, bool IsComplete, IReadOnlyList<string> Errors) { }
-
+public record MigrationProgress(string Phase, string CurrentStep, int ProgressPercentage, int CommitsProcessed, bool IsComplete)
+{
+	/// <summary>
+	/// Gets the list of errors encountered during this phase
+	/// </summary>
+	public IReadOnlyList<string> Errors { get; init; } = [];
+}

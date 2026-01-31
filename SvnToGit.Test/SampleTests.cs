@@ -4,32 +4,37 @@
 
 namespace ktsu.SvnToGit.Test;
 
+using ktsu.SvnToGit.Core;
+
 [TestClass]
-public class SampleTests
+public class SvnMigrationConfigTests
 {
 	[TestMethod]
-	public void Echo_ReturnsProvidedValue()
+	public void SvnMigrationConfig_CanBeCreated()
 	{
-		// Arrange
-		var expectedValue = 42;
-
-		// Act
-		var result = Sample.Echo(expectedValue);
+		// Arrange & Act
+		SvnMigrationConfig config = new()
+		{
+			SvnRepositoryPath = "/path/to/svn",
+			GitRepositoryPath = "/path/to/git"
+		};
 
 		// Assert
-		Assert.AreEqual(expectedValue, result);
+		Assert.AreEqual("/path/to/svn", config.SvnRepositoryPath);
+		Assert.AreEqual("/path/to/git", config.GitRepositoryPath);
 	}
 
 	[TestMethod]
-	public void Echo_WithString_ReturnsProvidedString()
+	public void SvnMigrationConfig_PreserveEmptyDirectories_DefaultsToTrue()
 	{
-		// Arrange
-		var expectedValue = "Hello World";
-
-		// Act
-		var result = Sample.Echo(expectedValue);
+		// Arrange & Act
+		SvnMigrationConfig config = new()
+		{
+			SvnRepositoryPath = "/path/to/svn",
+			GitRepositoryPath = "/path/to/git"
+		};
 
 		// Assert
-		Assert.AreEqual(expectedValue, result);
+		Assert.IsTrue(config.PreserveEmptyDirectories);
 	}
 }
