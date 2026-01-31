@@ -1,5 +1,7 @@
 <Project Sdk="ktsu.Sdk.Lib">
-  <ItemGroup>
-    <PackageReference Include="ktsu.RunCommand" />
-  </ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="ktsu.RunCommand" />
+	</ItemGroup>
+
 </Project>

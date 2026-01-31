@@ -4,8 +4,6 @@
 
 namespace ktsu.SvnToGit.Core;
 
-using System.Diagnostics;
-
 /// <summary>
 /// Main class for migrating SVN repositories to Git
 /// </summary>
@@ -66,62 +64,43 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 		var errors = ValidateConfiguration();
 		if (errors.Count > 0)
 		{
-			return new MigrationResult
+			return new MigrationResult(false, null, null)
 			{
-				Success = false,
 				Errors = [.. errors]
 			};
 		}
 
 		try
 		{
-			// Simulate migration phases
-			var phases = new[]
-			{
-				("Initialization", "Preparing migration environment"),
-				("Analysis", "Analyzing SVN repository structure"),
-				("Cloning", "Cloning SVN repository with git-svn"),
-				("Processing", "Converting branches and tags"),
-				("Cleanup", "Cleaning up git-svn references"),
-				("Finalization", "Finalizing Git repository")
-			};
+			// Phase 1: Initialization
+			progress?.Report(new MigrationProgress("Initialization", "Preparing migration environment", 10, default, default));
 
-			for (var i = 0; i < phases.Length; i++)
-			{
-				var (phase, step) = phases[i];
-				var percentage = (i + 1) * 100 / phases.Length;
+			// Create output directory if it doesn't exist
+			Directory.CreateDirectory(_config.GitRepositoryPath);
 
-				progress?.Report(new MigrationProgress
-				{
-					Phase = phase,
-					CurrentStep = step,
-					ProgressPercentage = percentage
-				});
+			// Phase 2: Clone SVN repository using git-svn
+			progress?.Report(new MigrationProgress("Cloning", "Cloning SVN repository with git-svn", 30, default, default));
 
-				// Simulate work
-				await Task.Delay(1000, cancellationToken).ConfigureAwait(false);
-			}
+			await CloneSvnRepositoryAsync(progress, cancellationToken).ConfigureAwait(false);
 
-			progress?.Report(new MigrationProgress
-			{
-				Phase = "Complete",
-				CurrentStep = "Migration completed successfully",
-				ProgressPercentage = 100,
-				IsComplete = true
-			});
+			// Phase 3: Clean up git-svn references
+			progress?.Report(new MigrationProgress("Cleanup", "Converting git-svn references to regular Git", 70, default, default));
 
-			return new MigrationResult
-			{
-				Success = true,
-				GitRepositoryPath = _config.GitRepositoryPath,
-				Information = "This is a demonstration. Actual migration would use git-svn commands."
-			};
+			await CleanupGitSvnReferencesAsync(progress, cancellationToken).ConfigureAwait(false);
+
+			// Phase 4: Finalization
+			progress?.Report(new MigrationProgress("Finalization", "Finalizing repository", 90, default, default));
+
+			await FinalizeRepositoryAsync(progress, cancellationToken).ConfigureAwait(false);
+
+			progress?.Report(new MigrationProgress("Complete", "Migration completed successfully", 100, default, true));
+
+			return new MigrationResult(true, _config.GitRepositoryPath, "SVN repository successfully migrated to Git with preserved history.");
 		}
 		catch (OperationCanceledException)
 		{
-			return new MigrationResult
+			return new MigrationResult(false, null, null)
 			{
-				Success = false,
 				Errors = ["Migration was cancelled"]
 			};
 		}
@@ -131,18 +110,8 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 	{
 		try
 		{
-			using var process = new Process();
-			process.StartInfo.FileName = "git";
-			process.StartInfo.Arguments = "svn --version";
-			process.StartInfo.UseShellExecute = false;
-			process.StartInfo.RedirectStandardOutput = true;
-			process.StartInfo.RedirectStandardError = true;
-			process.StartInfo.CreateNoWindow = true;
-
-			process.Start();
-			process.WaitForExit();
-
-			return process.ExitCode == 0;
+			var result = ProcessRunner.RunCommandAsync("git", ["svn", "--version"]);
+			return result.ExitCode == 0;
 		}
 		catch (InvalidOperationException)
 		{
@@ -159,5 +128,142 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 			// Git executable not found
 			return false;
 		}
+	}
+
+	private async Task CloneSvnRepositoryAsync(IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)
+	{
+		var gitSvnArgs = new List<string>
+		{
+			"svn",
+			"clone",
+			_config.SvnRepositoryPath,
+			_config.GitRepositoryPath,
+			"--stdlayout"
+		};
+
+		if (!string.IsNullOrWhiteSpace(_config.AuthorsFile))
+		{
+			gitSvnArgs.Add($"--authors-file={_config.AuthorsFile}");
+		}
+
+		if (_config.PreserveEmptyDirectories)
+		{
+			gitSvnArgs.Add("--preserve-empty-dirs");
+		}
+
+		await RunGitCommandAsync(gitSvnArgs, progress, cancellationToken).ConfigureAwait(false);
+	}
+
+	private async Task CleanupGitSvnReferencesAsync(IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)
+	{
+		// Convert remote branches to local branches
+		var branchesArgs = new List<string> { "-C", _config.GitRepositoryPath, "branch", "-r" };
+		var result = await RunGitCommandAsync(branchesArgs, progress, cancellationToken).ConfigureAwait(false);
+
+		// Parse remote branches and create local ones
+		if (result.Success)
+		{
+			var remoteBranches = result.StandardOutput
+				.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+				.Select(line => line.Trim())
+				.Where(line => !line.Contains("git-svn") && !line.Contains("trunk") && line.StartsWith("origin/", StringComparison.OrdinalIgnoreCase))
+				.ToList();
+
+			foreach (var remoteBranch in remoteBranches)
+			{
+				var branchName = remoteBranch.Replace("origin/", "", StringComparison.OrdinalIgnoreCase);
+				var createBranchArgs = new List<string> { "-C", _config.GitRepositoryPath, "checkout", "-b", branchName, remoteBranch };
+				await RunGitCommandAsync(createBranchArgs, progress, cancellationToken).ConfigureAwait(false);
+			}
+		}
+	}
+
+	private async Task FinalizeRepositoryAsync(IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)
+	{
+		// Run git gc to clean up the repository
+		var gcArgs = new List<string> { "-C", _config.GitRepositoryPath, "gc", "--aggressive" };
+		await RunGitCommandAsync(gcArgs, progress, cancellationToken).ConfigureAwait(false);
+	}
+
+	private static async Task<GitCommandResult> RunGitCommandAsync(
+		IEnumerable<string> arguments,
+		IProgress<MigrationProgress>? progress,
+		CancellationToken cancellationToken)
+	{
+		try
+		{
+			var result = await ProcessRunner.RunCommandAsync("git", arguments, cancellationToken).ConfigureAwait(false);
+
+			if (result.ExitCode != 0)
+			{
+				progress?.Report(new MigrationProgress("Error", $"Git command failed: {result.StandardError}", 0, default, default)
+				{
+					Errors = [result.StandardError]
+				});
+
+				return new GitCommandResult
+				{
+					Success = false,
+					StandardOutput = result.StandardOutput,
+					StandardError = result.StandardError
+				};
+			}
+
+			return new GitCommandResult
+			{
+				Success = true,
+				StandardOutput = result.StandardOutput,
+				StandardError = result.StandardError
+			};
+		}
+		catch (InvalidOperationException ex)
+		{
+			progress?.Report(new MigrationProgress("Error", $"Failed to execute git command: {ex.Message}", 0, default, default)
+			{
+				Errors = [ex.Message]
+			});
+
+			return new GitCommandResult
+			{
+				Success = false,
+				StandardOutput = string.Empty,
+				StandardError = ex.Message
+			};
+		}
+		catch (System.ComponentModel.Win32Exception ex)
+		{
+			progress?.Report(new MigrationProgress("Error", $"Git executable not found: {ex.Message}", 0, default, default)
+			{
+				Errors = [ex.Message]
+			});
+
+			return new GitCommandResult
+			{
+				Success = false,
+				StandardOutput = string.Empty,
+				StandardError = ex.Message
+			};
+		}
+		catch (FileNotFoundException ex)
+		{
+			progress?.Report(new MigrationProgress("Error", $"Git executable not found: {ex.Message}", 0, default, default)
+			{
+				Errors = [ex.Message]
+			});
+
+			return new GitCommandResult
+			{
+				Success = false,
+				StandardOutput = string.Empty,
+				StandardError = ex.Message
+			};
+		}
+	}
+
+	private record GitCommandResult
+	{
+		public required bool Success { get; init; }
+		public required string StandardOutput { get; init; }
+		public required string StandardError { get; init; }
 	}
 }

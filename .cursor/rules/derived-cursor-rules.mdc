@@ -10,6 +10,7 @@ globs: *
 *   Spectre.Console (for TUI)
 *   LibGit2Sharp (for Git repository manipulation)
 *   System.Diagnostics.Process (for running external processes)
+*   ktsu.RunCommand (for executing external processes)
 
 ## PROJECT DOCUMENTATION & CONTEXT SYSTEM
 
