@@ -2,6 +2,8 @@
 // All rights reserved.
 // Licensed under the MIT license.
 
+[assembly: Parallelize(Scope = ExecutionScope.MethodLevel)]
+
 namespace ktsu.SvnToGit.Test;
 
 using ktsu.SvnToGit.Core;

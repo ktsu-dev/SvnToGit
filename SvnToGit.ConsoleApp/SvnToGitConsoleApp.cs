@@ -37,7 +37,7 @@ public static class SvnToGitConsoleApp
 		{
 			while (true)
 			{
-				var choice = ShowMainMenu();
+				string choice = ShowMainMenu();
 
 				switch (choice)
 				{
@@ -103,7 +103,7 @@ public static class SvnToGitConsoleApp
 		AnsiConsole.Write(new Rule("[green]SVN to Git Migration[/]").RuleStyle("green").LeftJustified());
 
 		// Collect migration configuration
-		var config = CollectMigrationConfiguration();
+		SvnMigrationConfig? config = CollectMigrationConfiguration();
 
 		if (config == null)
 		{
@@ -112,13 +112,13 @@ public static class SvnToGitConsoleApp
 		}
 
 		// Validate configuration
-		var migrator = new SvnToGitMigrator(config);
-		var validationErrors = migrator.ValidateConfiguration();
+		SvnToGitMigrator migrator = new(config);
+		IReadOnlyList<string> validationErrors = migrator.ValidateConfiguration();
 
 		if (validationErrors.Count > 0)
 		{
 			AnsiConsole.MarkupLine("[red]Configuration validation failed:[/]");
-			foreach (var error in validationErrors)
+			foreach (string error in validationErrors)
 			{
 				AnsiConsole.MarkupLine($"[red]• {error}[/]");
 			}
@@ -145,10 +145,10 @@ public static class SvnToGitConsoleApp
 			])
 			.StartAsync(async ctx =>
 			{
-				var task = ctx.AddTask("[green]Migrating repository[/]");
+				ProgressTask task = ctx.AddTask("[green]Migrating repository[/]");
 				task.MaxValue = 100;
 
-				var progress = new Progress<MigrationProgress>(p =>
+				Progress<MigrationProgress> progress = new(p =>
 				{
 					task.Value = p.ProgressPercentage;
 					task.Description = $"[green]{p.Phase}[/]: {p.CurrentStep}";
@@ -159,7 +159,7 @@ public static class SvnToGitConsoleApp
 					}
 				});
 
-				var result = await migrator.MigrateAsync(progress).ConfigureAwait(false);
+				MigrationResult result = await migrator.MigrateAsync(progress).ConfigureAwait(false);
 
 				if (result.Success)
 				{
@@ -170,7 +170,7 @@ public static class SvnToGitConsoleApp
 				{
 					task.Description = "[red]Migration failed[/]";
 					AnsiConsole.MarkupLine("[red]❌ Migration failed with the following errors:[/]");
-					foreach (var error in result.Errors)
+					foreach (string error in result.Errors)
 					{
 						AnsiConsole.MarkupLine($"[red]• {error}[/]");
 					}
@@ -182,7 +182,7 @@ public static class SvnToGitConsoleApp
 	{
 		AnsiConsole.Write(new Rule("[yellow]Configuration Validation[/]").RuleStyle("yellow").LeftJustified());
 
-		var config = CollectMigrationConfiguration();
+		SvnMigrationConfig? config = CollectMigrationConfiguration();
 
 		if (config == null)
 		{
@@ -197,8 +197,8 @@ public static class SvnToGitConsoleApp
 			{
 				await Task.Delay(1000).ConfigureAwait(false); // Simulate validation time
 
-				var migrator = new SvnToGitMigrator(config);
-				var errors = migrator.ValidateConfiguration();
+				SvnToGitMigrator migrator = new(config);
+				IReadOnlyList<string> errors = migrator.ValidateConfiguration();
 
 				if (errors.Count == 0)
 				{
@@ -212,8 +212,8 @@ public static class SvnToGitConsoleApp
 				}
 			}).ConfigureAwait(false);
 
-		var migrator = new SvnToGitMigrator(config);
-		var validationErrors = migrator.ValidateConfiguration();
+		SvnToGitMigrator migrator2 = new(config);
+		IReadOnlyList<string> validationErrors = migrator2.ValidateConfiguration();
 
 		if (validationErrors.Count == 0)
 		{
@@ -224,7 +224,7 @@ public static class SvnToGitConsoleApp
 		}
 		else
 		{
-			var errorPanel = new Panel(
+			Panel errorPanel = new Panel(
 				string.Join("\n", validationErrors.Select(e => $"[red]• {e}[/]")))
 				.Border(BoxBorder.Rounded)
 				.BorderColor(Color.Red)
@@ -238,37 +238,37 @@ public static class SvnToGitConsoleApp
 	{
 		try
 		{
-			var svnPath = AnsiConsole.Ask<string>("[blue]Enter SVN repository path:[/]");
+			string svnPath = AnsiConsole.Ask<string>("[blue]Enter SVN repository path:[/]");
 
-			var defaultGitPath = Path.Combine(Path.GetDirectoryName(svnPath) ?? ".",
+			string defaultGitPath = Path.Combine(Path.GetDirectoryName(svnPath) ?? ".",
 				Path.GetFileName(svnPath) + "-git");
 
-			var gitPath = AnsiConsole.Ask("[blue]Enter Git repository path:[/]", defaultGitPath);
+			string gitPath = AnsiConsole.Ask("[blue]Enter Git repository path:[/]", defaultGitPath);
 
-			var useAuthorsFile = AnsiConsole.Confirm("Do you want to use an authors file for user mapping?");
+			bool useAuthorsFile = AnsiConsole.Confirm("Do you want to use an authors file for user mapping?");
 			string? authorsFile = null;
 			if (useAuthorsFile)
 			{
 				authorsFile = AnsiConsole.Ask<string>("[blue]Enter authors file path:[/]");
 			}
 
-			var preserveEmptyDirs = AnsiConsole.Confirm("Preserve empty directories?", true);
+			bool preserveEmptyDirs = AnsiConsole.Confirm("Preserve empty directories?", true);
 
 			// Advanced options
-			var showAdvanced = AnsiConsole.Confirm("Configure advanced options?", false);
-			var excludeTags = new Collection<string>();
-			var excludeBranches = new Collection<string>();
+			bool showAdvanced = AnsiConsole.Confirm("Configure advanced options?", false);
+			Collection<string> excludeTags = [];
+			Collection<string> excludeBranches = [];
 
 			if (showAdvanced)
 			{
-				var excludeTagsInput = AnsiConsole.Ask("[blue]Tags to exclude (comma-separated, or press Enter for none):[/]", string.Empty);
+				string excludeTagsInput = AnsiConsole.Ask("[blue]Tags to exclude (comma-separated, or press Enter for none):[/]", string.Empty);
 				if (!string.IsNullOrWhiteSpace(excludeTagsInput))
 				{
 					excludeTags = excludeTagsInput.Split(',', StringSplitOptions.RemoveEmptyEntries)
 						.Select(t => t.Trim()).ToCollection();
 				}
 
-				var excludeBranchesInput = AnsiConsole.Ask("[blue]Branches to exclude (comma-separated, or press Enter for none):[/]", string.Empty);
+				string excludeBranchesInput = AnsiConsole.Ask("[blue]Branches to exclude (comma-separated, or press Enter for none):[/]", string.Empty);
 				if (!string.IsNullOrWhiteSpace(excludeBranchesInput))
 				{
 					excludeBranches = excludeBranchesInput.Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -307,7 +307,7 @@ public static class SvnToGitConsoleApp
 	{
 		AnsiConsole.Write(new Rule("[cyan]Help & Information[/]").RuleStyle("cyan").LeftJustified());
 
-		var helpPanel = new Panel(
+		Panel helpPanel = new Panel(
 			new Markup("""
 			[bold]SVN to Git Migration Tool[/]
 

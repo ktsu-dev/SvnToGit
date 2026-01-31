@@ -2,11 +2,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34330.188
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SvnToGit.Core", "SvnToGit.Core\SvnToGit.Core.csproj", "d3a6516e-3396-46bb-b836-fb978c42c70d"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SvnToGit.Core", "SvnToGit.Core\SvnToGit.Core.csproj", "{d3a6516e-3396-46bb-b836-fb978c42c70d}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SvnToGit.ConsoleApp", "SvnToGit.ConsoleApp\SvnToGit.ConsoleApp.csproj", "e1010331-2693-42a4-9694-8b1ad28e0892"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SvnToGit.ConsoleApp", "SvnToGit.ConsoleApp\SvnToGit.ConsoleApp.csproj", "{e1010331-2693-42a4-9694-8b1ad28e0892}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SvnToGit.Test", "SvnToGit.Test\SvnToGit.Test.csproj", "7eecbe66-1fbf-461b-8703-476d28a493b2"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SvnToGit.Test", "SvnToGit.Test\SvnToGit.Test.csproj", "{7eecbe66-1fbf-461b-8703-476d28a493b2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -5,6 +5,7 @@
 		<IsTestProject>true</IsTestProject>
 		<TargetFramework>net10.0</TargetFramework>
 		<TargetFrameworks></TargetFrameworks>
+		<Parallelize>true</Parallelize>
 	</PropertyGroup>
 
 	<ItemGroup>
