@@ -1,3 +1,9 @@
+## v1.0.4 (patch)
+
+Changes since v1.0.3:
+
+- Remove legacy build scripts ([@matt-edmondson](https://github.com/matt-edmondson))
+
 ## v1.0.3 (patch)
 
 Changes since v1.0.2:
@@ -31,12 +37,7 @@ Changes since v1.0.3-pre.1:
 
 ## v1.0.3-pre.1 (prerelease)
 
-Changes since v1.0.2:
-
-- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
-- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
+No significant changes detected since v1.0.3.
 
 ## v1.0.2 (patch)
 
