@@ -1,22 +1,68 @@
 # ktsu.SvnToGit
 
-> Placeholder descriptions
+A guided .NET 10 CLI that migrates a Subversion repository to Git, wrapping `git svn` with an interactive Spectre.Console front-end.
 
-## Overview
+## What it does
 
-> Placeholder overview
+`SvnToGit.ConsoleApp` is a menu-driven TUI that walks a user through:
 
-## Features
+1. **Clone** — runs `git svn clone <svn-path> <git-path> --stdlayout`, with optional `--authors-file` and `--preserve-empty-dirs`.
+2. **Cleanup refs** — converts the remote `git-svn` branches into local Git branches.
+3. **Finalize** — runs `git gc --aggressive`.
+4. **Report** — exit status with the path of the new Git repository.
 
-> Placeholder features
+Built on top of `git svn`, so anything `git svn` can do, this tool can do — but with a guided front end, validation, and progress reporting via Spectre.Console.
+
+## Prerequisites
+
+- Git with `git-svn` support on the `PATH`.
+- An SVN repository reachable as a local path or URL.
+- Disk space for the cloned Git repo.
+- .NET 10 SDK.
 
 ## Installation
 
-Add the NuGet package:
+This repository ships two projects:
+
+- `SvnToGit.ConsoleApp` — the runnable TUI.
+- `SvnToGit.Core` — the migration library (`SvnToGitMigrator`) that the CLI consumes; reusable in other apps.
 
 ```bash
-dotnet add package ktsu.SvnToGit
+git clone <repo>
+cd SvnToGit
+dotnet build
 ```
+
+## Usage
+
+```bash
+dotnet run --project SvnToGit.ConsoleApp
+```
+
+The TUI presents four options:
+
+| Option | Effect |
+|---|---|
+| `migrate` | Run the full migration, prompting for paths. |
+| `validate` | Validate the configured paths and exit without migrating. |
+| `help` | Built-in help, including the authors-file format. |
+| `exit` | Quit. |
+
+### Configuration prompts (during `migrate`)
+
+| Prompt | Required | Notes |
+|---|---|---|
+| SVN repository path | yes | Local path or URL. |
+| Git repository path | no | Defaults to `<svn-dir>-git`. |
+| Authors file | no | One mapping per line: `svnuser = Full Name <email@example.com>`. |
+| Preserve empty directories | no | Defaults to `yes`. |
+| Advanced options | no | Toggles exclude-tags / exclude-branches lists. |
+
+> The `ExcludeTags` and `ExcludeBranches` fields are accepted in the prompts but are not currently passed through to `git svn` — see open issues.
+
+## Related
+
+KtsuTools exposes a non-interactive flag-driven version of the same migration as `ktsu svn-migrate`. This repo's TUI is the canonical interactive experience.
 
 ## License
 
