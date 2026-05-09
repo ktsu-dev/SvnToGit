@@ -1,1 +1,1 @@
-placeholder tags;use semicolons to separate tags;and spaces to separate words;
+svn to git;svn migration;git svn;subversion;migration tool;tui;spectre console;cli;version control;dotnet;csharp
