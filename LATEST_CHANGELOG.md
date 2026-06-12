@@ -1,7 +1,6 @@
-## v1.0.6 (patch)
+## v1.0.7 (patch)
 
-Changes since v1.0.5:
+Changes since v1.0.6:
 
-- Regenerate TAGS.md with NuGet package tags ([@matt-edmondson](https://github.com/matt-edmondson))
-- docs: replace placeholder README with usage and configuration reference ([@matt-edmondson](https://github.com/matt-edmondson))
+- Bump the ktsu group with 2 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
