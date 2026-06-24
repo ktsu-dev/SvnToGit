@@ -2,6 +2,7 @@
 
 Changes since v1.0.7:
 
+- Bump Spectre.Console from 0.57.0 to 0.57.1 ([@dependabot[bot]](https://github.com/dependabot[bot]))
 - Bump the ktsu group with 2 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
 - Bump the ktsu group with 8 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
 - Bump the ktsu group with 2 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
