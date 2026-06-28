@@ -1,8 +1,8 @@
-## v1.0.8 (patch)
+## v1.0.9 (patch)
 
-Changes since v1.0.7:
+Changes since v1.0.8:
 
-- chore: remove merge conflict markers from package versions ([@matt-edmondson](https://github.com/matt-edmondson))
-- chore: remove SourceLink package versions from central props ([@matt-edmondson](https://github.com/matt-edmondson))
-- fix: resolve package reference merge conflicts ([@matt-edmondson](https://github.com/matt-edmondson))
+- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
 
