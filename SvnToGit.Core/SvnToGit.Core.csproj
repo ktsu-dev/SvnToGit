@@ -3,8 +3,6 @@
 
 	<ItemGroup>
 		<PackageReference Include="ktsu.RunCommand" />
-		<PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
-		<PackageReference Include="Microsoft.SourceLink.AzureRepos.Git" PrivateAssets="All" />
 		<PackageReference Include="Polyfill" PrivateAssets="All" />
 	</ItemGroup>
 

@@ -10,10 +10,9 @@
   <ItemGroup>
     <PackageReference Include="Spectre.Console" />
     <PackageReference Include="ktsu.Extensions" />
-    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
-    <PackageReference Include="Microsoft.SourceLink.AzureRepos.Git" PrivateAssets="All" />
     <PackageReference Include="Polyfill" PrivateAssets="All" />
-  </ItemGroup>
+  
+    <PackageReference Include="Spectre.Console.Ansi" /></ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\SvnToGit.Core\SvnToGit.Core.csproj" />
