@@ -1,6 +1,4 @@
-## v1.0.14 (patch)
+## v1.0.14
 
-Changes since v1.0.13:
-
-- Bump Spectre.Console and Spectre.Console.Ansi ([@dependabot[bot]](https://github.com/dependabot[bot]))
+No significant changes detected since v1.0.14.
 
