@@ -2,6 +2,7 @@
 
 Changes since v1.0.14:
 
+- Bump the ktsu group with 10 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
 - Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
 - Sync .github\workflows\dependabot-merge.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
 - Sync .gitattributes ([@ktsu[bot]](https://github.com/ktsu[bot]))
