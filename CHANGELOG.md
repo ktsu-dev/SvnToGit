@@ -2,7 +2,7 @@
 
 Changes since v1.0.15:
 
-- Bump the ktsu group with 2 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Sync global.json ([@KtsuTools](https://github.com/KtsuTools))
 
 ## v1.0.15 (patch)
 
