@@ -17,4 +17,8 @@
   <ItemGroup>
     <ProjectReference Include="..\SvnToGit.Core\SvnToGit.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ktsu.SvnToGit.Test" />
+  </ItemGroup>
 </Project>

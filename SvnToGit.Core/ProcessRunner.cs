@@ -42,7 +42,7 @@ public static class ProcessRunner
 			onStandardError: data => stderrBuilder.Append(data));
 
 		// Execute the command
-		int exitCode = await RunCommand.ExecuteAsync(command, outputHandler).ConfigureAwait(false);
+		int exitCode = await RunCommand.ExecuteAsync(command, outputHandler, cancellationToken).ConfigureAwait(false);
 
 		// Check for cancellation
 		cancellationToken.ThrowIfCancellationRequested();
