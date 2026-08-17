@@ -1,8 +1,6 @@
-## v1.0.16 (patch)
+## v1.0.17 (patch)
 
-Changes since v1.0.15:
+Changes since v1.0.16:
 
-- Fix build errors from ktsu.Sdk analyzer updates (CA2016, KTSU0001, KTSU0002) [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
-- Sync .editorconfig ([@KtsuTools](https://github.com/KtsuTools))
-- Sync global.json ([@KtsuTools](https://github.com/KtsuTools))
+- Bump the ktsu group with 1 update ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
