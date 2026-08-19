@@ -2,6 +2,14 @@
 
 A guided .NET 10 CLI that migrates a Subversion repository to Git, wrapping `git svn` with an interactive Spectre.Console front-end.
 
+[![License](https://img.shields.io/github/license/ktsu-dev/SvnToGit.svg?label=License&logo=nuget)](LICENSE.md)
+[![NuGet Version](https://img.shields.io/nuget/v/ktsu.SvnToGit.Core?label=Stable&logo=nuget)](https://nuget.org/packages/ktsu.SvnToGit.Core)
+[![NuGet Version](https://img.shields.io/nuget/vpre/ktsu.SvnToGit.Core?label=Latest&logo=nuget)](https://nuget.org/packages/ktsu.SvnToGit.Core)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/ktsu.SvnToGit.Core?label=Downloads&logo=nuget)](https://nuget.org/packages/ktsu.SvnToGit.Core)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/ktsu-dev/SvnToGit?label=Commits&logo=github)](https://github.com/ktsu-dev/SvnToGit/commits/main)
+[![GitHub contributors](https://img.shields.io/github/contributors/ktsu-dev/SvnToGit?label=Contributors&logo=github)](https://github.com/ktsu-dev/SvnToGit/graphs/contributors)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ktsu-dev/SvnToGit/dotnet.yml?label=Build&logo=github)](https://github.com/ktsu-dev/SvnToGit/actions)
+
 ## What it does
 
 `SvnToGit.ConsoleApp` is a menu-driven TUI that walks a user through:
