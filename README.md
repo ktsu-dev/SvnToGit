@@ -8,7 +8,7 @@ A guided .NET 10 CLI that migrates a Subversion repository to Git, wrapping `git
 [![NuGet Downloads](https://img.shields.io/nuget/dt/ktsu.SvnToGit.Core?label=Downloads&logo=nuget)](https://nuget.org/packages/ktsu.SvnToGit.Core)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/ktsu-dev/SvnToGit?label=Commits&logo=github)](https://github.com/ktsu-dev/SvnToGit/commits/main)
 [![GitHub contributors](https://img.shields.io/github/contributors/ktsu-dev/SvnToGit?label=Contributors&logo=github)](https://github.com/ktsu-dev/SvnToGit/graphs/contributors)
-[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ktsu-dev/SvnToGit/dotnet.yml?label=Build&logo=github)](https://github.com/ktsu-dev/SvnToGit/actions)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ktsu-dev/SvnToGit/dotnet.yml?branch=main&label=Build&logo=github)](https://github.com/ktsu-dev/SvnToGit/actions)
 
 ## What it does
 
