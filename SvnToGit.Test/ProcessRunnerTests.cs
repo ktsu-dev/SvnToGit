@@ -12,6 +12,8 @@ using ktsu.SvnToGit.Core;
 [TestClass]
 public class ProcessRunnerTests
 {
+	public TestContext TestContext { get; set; } = null!;
+
 	[TestMethod]
 	public async Task RunCommandAsync_ExecutablePathContainsSpaces_RunsTheExecutable()
 	{
@@ -24,11 +26,11 @@ public class ProcessRunnerTests
 			string executable = WriteEchoScript(directory);
 
 			// Act
-			ProcessResult result = await ProcessRunner.RunCommandAsync(executable, ["hello"]).ConfigureAwait(false);
+			ProcessResult result = await ProcessRunner.RunCommandAsync(executable, ["hello"], TestContext.CancellationToken).ConfigureAwait(false);
 
 			// Assert
 			Assert.AreEqual(0, result.ExitCode, result.StandardError);
-			StringAssert.Contains(result.StandardOutput, "hello");
+			Assert.Contains("hello", result.StandardOutput);
 		}
 		finally
 		{
@@ -47,11 +49,11 @@ public class ProcessRunnerTests
 			string executable = WriteEchoScript(directory);
 
 			// Act
-			ProcessResult result = await ProcessRunner.RunCommandAsync(executable, ["two words"]).ConfigureAwait(false);
+			ProcessResult result = await ProcessRunner.RunCommandAsync(executable, ["two words"], TestContext.CancellationToken).ConfigureAwait(false);
 
 			// Assert
 			Assert.AreEqual(0, result.ExitCode, result.StandardError);
-			StringAssert.Contains(result.StandardOutput, "two words");
+			Assert.Contains("two words", result.StandardOutput);
 		}
 		finally
 		{
