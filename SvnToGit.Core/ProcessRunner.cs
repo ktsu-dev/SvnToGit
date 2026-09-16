@@ -33,51 +33,19 @@ public static class ProcessRunner
 		StringBuilder stdoutBuilder = new();
 		StringBuilder stderrBuilder = new();
 
-		// Build the command string
-		string command = BuildCommandString(fileName, arguments);
-
 		// Create output handler to capture stdout and stderr
 		OutputHandler outputHandler = new(
 			onStandardOutput: data => stdoutBuilder.Append(data),
 			onStandardError: data => stderrBuilder.Append(data));
 
-		// Execute the command
-		int exitCode = await RunCommand.ExecuteAsync(command, outputHandler, cancellationToken).ConfigureAwait(false);
+		// Execute the command, passing the executable and its arguments separately so that a path
+		// containing spaces is never split, and no manual quoting is required
+		int exitCode = await RunCommand.ExecuteAsync(fileName, arguments, outputHandler, cancellationToken).ConfigureAwait(false);
 
 		// Check for cancellation
 		cancellationToken.ThrowIfCancellationRequested();
 
 		return new ProcessResult(exitCode, stdoutBuilder.ToString(), stderrBuilder.ToString());
-	}
-
-	private static string BuildCommandString(string fileName, IEnumerable<string> arguments)
-	{
-		StringBuilder sb = new();
-		sb.Append(QuoteIfNeeded(fileName));
-
-		foreach (string arg in arguments)
-		{
-			sb.Append(' ');
-			sb.Append(QuoteIfNeeded(arg));
-		}
-
-		return sb.ToString();
-	}
-
-	private static string QuoteIfNeeded(string value)
-	{
-		if (string.IsNullOrEmpty(value))
-		{
-			return "\"\"";
-		}
-
-		if (value.Contains(' ') || value.Contains('"'))
-		{
-			// Escape internal quotes and wrap in quotes
-			return $"\"{value.Replace("\"", "\\\"")}\"";
-		}
-
-		return value;
 	}
 }
 
