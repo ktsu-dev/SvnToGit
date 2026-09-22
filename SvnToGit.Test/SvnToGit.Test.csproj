@@ -9,6 +9,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\SvnToGit.Core\SvnToGit.Core.csproj" />
+		<ProjectReference Include="..\SvnToGit\SvnToGit.csproj" />
 	</ItemGroup>
 </Project>

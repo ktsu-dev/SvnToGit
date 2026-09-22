@@ -15,7 +15,7 @@
     <PackageReference Include="Spectre.Console.Ansi" /></ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\SvnToGit.Core\SvnToGit.Core.csproj" />
+    <ProjectReference Include="..\SvnToGit\SvnToGit.csproj" />
   </ItemGroup>
 
   <ItemGroup>

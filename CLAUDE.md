@@ -13,7 +13,7 @@ SvnToGit is a .NET tool for migrating SVN repositories to Git while preserving c
 dotnet build
 
 # Build specific project
-dotnet build SvnToGit.Core/SvnToGit.Core.csproj
+dotnet build SvnToGit/SvnToGit.csproj
 
 # Run tests
 dotnet test
@@ -22,14 +22,14 @@ dotnet test
 dotnet test --filter "FullyQualifiedName~SampleTests.Echo_ReturnsProvidedValue"
 
 # Run the console app
-dotnet run --project SvnToGit.ConsoleApp
+dotnet run --project SvnToGit.Cli
 ```
 
 ## Architecture
 
 **Project Structure:**
-- `SvnToGit.Core/` - Core migration library containing the `SvnToGitMigrator` class
-- `SvnToGit.ConsoleApp/` - Interactive TUI application using Spectre.Console
+- `SvnToGit/` - Core migration library containing the `SvnToGitMigrator` class
+- `SvnToGit.Cli/` - Interactive TUI application using Spectre.Console
 - `SvnToGit.Test/` - MSTest-based test project
 
 **Key Components:**
