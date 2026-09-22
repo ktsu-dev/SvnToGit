@@ -1,6 +1,6 @@
 // Copyright (c) 2023-2026 ktsu-dev contributors
 
-namespace ktsu.SvnToGit.ConsoleApp;
+namespace ktsu.SvnToGit.Cli;
 
 using System.Collections.ObjectModel;
 using ktsu.Extensions;
@@ -10,7 +10,7 @@ using Spectre.Console;
 /// <summary>
 /// TUI-based SVN to Git migration application
 /// </summary>
-public static class SvnToGitConsoleApp
+public static class SvnToGitCli
 {
 	/// <summary>
 	/// Main entry point

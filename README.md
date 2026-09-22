@@ -3,16 +3,16 @@
 A guided .NET 10 CLI that migrates a Subversion repository to Git, wrapping `git svn` with an interactive Spectre.Console front-end.
 
 [![License](https://img.shields.io/github/license/ktsu-dev/SvnToGit.svg?label=License&logo=nuget)](LICENSE.md)
-[![NuGet Version](https://img.shields.io/nuget/v/ktsu.SvnToGit.Core?label=Stable&logo=nuget)](https://nuget.org/packages/ktsu.SvnToGit.Core)
-[![NuGet Version](https://img.shields.io/nuget/vpre/ktsu.SvnToGit.Core?label=Latest&logo=nuget)](https://nuget.org/packages/ktsu.SvnToGit.Core)
-[![NuGet Downloads](https://img.shields.io/nuget/dt/ktsu.SvnToGit.Core?label=Downloads&logo=nuget)](https://nuget.org/packages/ktsu.SvnToGit.Core)
+[![NuGet Version](https://img.shields.io/nuget/v/ktsu.SvnToGit?label=Stable&logo=nuget)](https://nuget.org/packages/ktsu.SvnToGit)
+[![NuGet Version](https://img.shields.io/nuget/vpre/ktsu.SvnToGit?label=Latest&logo=nuget)](https://nuget.org/packages/ktsu.SvnToGit)
+[![NuGet Downloads](https://img.shields.io/nuget/dt/ktsu.SvnToGit?label=Downloads&logo=nuget)](https://nuget.org/packages/ktsu.SvnToGit)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/m/ktsu-dev/SvnToGit?label=Commits&logo=github)](https://github.com/ktsu-dev/SvnToGit/commits/main)
 [![GitHub contributors](https://img.shields.io/github/contributors/ktsu-dev/SvnToGit?label=Contributors&logo=github)](https://github.com/ktsu-dev/SvnToGit/graphs/contributors)
 [![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/ktsu-dev/SvnToGit/dotnet.yml?branch=main&label=Build&logo=github)](https://github.com/ktsu-dev/SvnToGit/actions)
 
 ## What it does
 
-`SvnToGit.ConsoleApp` is a menu-driven TUI that walks a user through:
+`SvnToGit.Cli` is a menu-driven TUI that walks a user through:
 
 1. **Clone** — runs `git svn clone <svn-path> <git-path> --stdlayout`, with optional `--authors-file` and `--preserve-empty-dirs`.
 2. **Cleanup refs** — converts the remote `git-svn` branches into local Git branches.
@@ -32,8 +32,8 @@ Built on top of `git svn`, so anything `git svn` can do, this tool can do — bu
 
 This repository ships two projects:
 
-- `SvnToGit.ConsoleApp` — the runnable TUI.
-- `SvnToGit.Core` — the migration library (`SvnToGitMigrator`) that the CLI consumes; reusable in other apps.
+- `SvnToGit.Cli` — the runnable TUI.
+- `SvnToGit` — the migration library (`SvnToGitMigrator`) that the CLI consumes; reusable in other apps.
 
 ```bash
 git clone <repo>
@@ -44,7 +44,7 @@ dotnet build
 ## Usage
 
 ```bash
-dotnet run --project SvnToGit.ConsoleApp
+dotnet run --project SvnToGit.Cli
 ```
 
 The TUI presents four options:
