@@ -1,6 +1,9 @@
-## v2.0.4
+## v2.1.0 (minor)
 
-No significant changes detected since v2.0.4.
+Changes since v2.0.0:
+
+- Accept SVN URLs, not only local directories, as the repository to migrate ([@Claude](https://github.com/Claude))
+- Report a failed migration phase instead of claiming success ([@Claude](https://github.com/Claude))
 
 ## v2.0.4 (patch)
 
