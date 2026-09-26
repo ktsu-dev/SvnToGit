@@ -14,4 +14,9 @@ public record MigrationResult(bool Success, string? GitRepositoryPath, string? I
 	/// Gets the list of errors encountered during migration
 	/// </summary>
 	public IReadOnlyList<string> Errors { get; init; } = [];
+
+	/// <summary>
+	/// Gets the list of problems that did not stop the migration, such as a failed repository cleanup
+	/// </summary>
+	public IReadOnlyList<string> Warnings { get; init; } = [];
 }
