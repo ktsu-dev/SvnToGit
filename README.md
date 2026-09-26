@@ -60,8 +60,8 @@ The TUI presents four options:
 
 | Prompt | Required | Notes |
 |---|---|---|
-| SVN repository path | yes | Local path or URL. |
-| Git repository path | no | Defaults to `<svn-dir>-git`. |
+| SVN repository URL or local path | yes | An `http://`, `https://`, `svn://`, `svn+ssh://` or `file://` URL, or an existing local directory, which is passed to git-svn as a `file://` URL. |
+| Git repository path | no | Defaults to `<name>-git`, where `<name>` is the last segment of the URL or path. |
 | Authors file | no | One mapping per line: `svnuser = Full Name <email@example.com>`. |
 | Preserve empty directories | no | Defaults to `yes`. |
 | Advanced options | no | Toggles exclude-tags / exclude-branches lists. |
