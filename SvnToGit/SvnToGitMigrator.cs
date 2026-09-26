@@ -25,9 +25,9 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 		{
 			errors.Add("SVN repository path is required");
 		}
-		else if (!Directory.Exists(_config.SvnRepositoryPath))
+		else if (ResolveSvnUrl(_config.SvnRepositoryPath) is null)
 		{
-			errors.Add($"SVN repository path does not exist: {_config.SvnRepositoryPath}");
+			errors.Add($"SVN repository must be an http://, https://, svn://, svn+ssh:// or file:// URL, or an existing local directory: {_config.SvnRepositoryPath}");
 		}
 
 		if (string.IsNullOrWhiteSpace(_config.GitRepositoryPath))
@@ -140,7 +140,7 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 		[
 			"svn",
 			"clone",
-			_config.SvnRepositoryPath,
+			ResolveSvnUrl(_config.SvnRepositoryPath) ?? _config.SvnRepositoryPath,
 			_config.GitRepositoryPath,
 			"--stdlayout"
 		];
@@ -264,6 +264,33 @@ public class SvnToGitMigrator(SvnMigrationConfig config)
 			};
 		}
 	}
+
+	/// <summary>
+	/// Resolves the configured SVN repository to the URL that git-svn expects
+	/// </summary>
+	/// <param name="svnRepositoryPath">An SVN URL, or the path of a local SVN repository</param>
+	/// <returns>
+	/// The URL unchanged when it has a scheme git-svn can reach, a <c>file://</c> URL for an existing local
+	/// directory, or <see langword="null"/> when it is neither
+	/// </returns>
+	internal static string? ResolveSvnUrl(string svnRepositoryPath)
+	{
+		// Require an explicit scheme, because a bare Unix path such as /srv/svn parses as an absolute file URI
+		if (svnRepositoryPath.Contains("://", StringComparison.Ordinal)
+			&& Uri.TryCreate(svnRepositoryPath, UriKind.Absolute, out Uri? uri))
+		{
+			return SupportedSvnSchemes.Contains(uri.Scheme) ? svnRepositoryPath : null;
+		}
+
+		return Directory.Exists(svnRepositoryPath)
+			? new Uri(Path.GetFullPath(svnRepositoryPath)).AbsoluteUri
+			: null;
+	}
+
+	private static readonly HashSet<string> SupportedSvnSchemes = new(StringComparer.OrdinalIgnoreCase)
+	{
+		"http", "https", "svn", "svn+ssh", "file",
+	};
 
 	private sealed record GitCommandResult
 	{

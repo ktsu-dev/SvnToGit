@@ -236,10 +236,9 @@ public static class SvnToGitCli
 	{
 		try
 		{
-			string svnPath = AnsiConsole.Ask<string>("[blue]Enter SVN repository path:[/]");
+			string svnPath = AnsiConsole.Ask<string>("[blue]Enter SVN repository URL or local path:[/]");
 
-			string defaultGitPath = Path.Combine(Path.GetDirectoryName(svnPath) ?? ".",
-				Path.GetFileName(svnPath) + "-git");
+			string defaultGitPath = DefaultGitPath(svnPath);
 
 			string gitPath = AnsiConsole.Ask("[blue]Enter Git repository path:[/]", defaultGitPath);
 
@@ -299,6 +298,31 @@ public static class SvnToGitCli
 			AnsiConsole.MarkupLine("[red]Invalid argument provided during configuration.[/]");
 			return null;
 		}
+	}
+
+	/// <summary>
+	/// Proposes a Git repository path named after the last segment of the SVN URL or path, with a
+	/// <c>-git</c> suffix: beside the source for a local path, and in the current directory for a URL
+	/// </summary>
+	/// <param name="svnPath">The SVN repository URL or local path</param>
+	/// <returns>The default Git repository path</returns>
+	internal static string DefaultGitPath(string svnPath)
+	{
+		string localPath = svnPath;
+
+		if (svnPath.Contains("://", StringComparison.Ordinal) && Uri.TryCreate(svnPath, UriKind.Absolute, out Uri? uri))
+		{
+			if (!uri.IsFile)
+			{
+				string lastSegment = Uri.UnescapeDataString(uri.Segments[^1].Trim('/'));
+				return Path.Combine(".", (string.IsNullOrEmpty(lastSegment) ? uri.Host : lastSegment) + "-git");
+			}
+
+			localPath = uri.LocalPath;
+		}
+
+		localPath = Path.TrimEndingDirectorySeparator(localPath);
+		return Path.Combine(Path.GetDirectoryName(localPath) ?? ".", Path.GetFileName(localPath) + "-git");
 	}
 
 	private static void ShowHelp()

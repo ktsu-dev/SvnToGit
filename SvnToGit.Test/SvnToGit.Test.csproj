@@ -10,5 +10,6 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\SvnToGit\SvnToGit.csproj" />
+		<ProjectReference Include="..\SvnToGit.Cli\SvnToGit.Cli.csproj" />
 	</ItemGroup>
 </Project>
