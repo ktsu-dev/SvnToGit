@@ -2,6 +2,8 @@
 
 namespace ktsu.SvnToGit.Core;
 
+using System.Text.RegularExpressions;
+
 /// <summary>
 /// Main class for migrating SVN repositories to Git
 /// </summary>
@@ -196,6 +198,12 @@ public class SvnToGitMigrator
 			gitSvnArgs.Add("--preserve-empty-dirs");
 		}
 
+		string? ignoreRefs = BuildIgnoreRefsRegex(_config.ExcludeBranches, _config.ExcludeTags);
+		if (ignoreRefs is not null)
+		{
+			gitSvnArgs.Add($"--ignore-refs={ignoreRefs}");
+		}
+
 		return await RunGitCommandAsync(gitSvnArgs, progress, cancellationToken).ConfigureAwait(false);
 	}
 
@@ -214,7 +222,8 @@ public class SvnToGitMigrator
 		List<string> remoteBranches = [.. result.StandardOutput
 			.Split('\n', StringSplitOptions.RemoveEmptyEntries)
 			.Select(line => line.Trim())
-			.Where(line => line.IndexOf("git-svn", StringComparison.Ordinal) < 0 && line.IndexOf("trunk", StringComparison.Ordinal) < 0 && line.StartsWith("origin/", StringComparison.OrdinalIgnoreCase))];
+			.Where(line => line.IndexOf("git-svn", StringComparison.Ordinal) < 0 && line.IndexOf("trunk", StringComparison.Ordinal) < 0 && line.StartsWith("origin/", StringComparison.OrdinalIgnoreCase))
+			.Where(line => !IsExcludedRemoteRef(line))];
 
 		foreach (string remoteBranch in remoteBranches)
 		{
@@ -313,6 +322,47 @@ public class SvnToGitMigrator
 			};
 		}
 	}
+
+	/// <summary>
+	/// Builds the Perl regular expression that <c>git svn clone --ignore-refs</c> matches against the
+	/// remote refs it would create, so excluded branches and tags are never fetched
+	/// </summary>
+	/// <param name="excludeBranches">Names of SVN branches to leave out</param>
+	/// <param name="excludeTags">Names of SVN tags to leave out</param>
+	/// <returns>The regular expression, or <see langword="null"/> when nothing is excluded</returns>
+	internal static string? BuildIgnoreRefsRegex(IEnumerable<string> excludeBranches, IEnumerable<string> excludeTags)
+	{
+		List<string> alternatives = [
+			.. ExclusionNames(excludeBranches).Select(Regex.Escape),
+			.. ExclusionNames(excludeTags).Select(tag => $"tags/{Regex.Escape(tag)}"),
+		];
+
+		return alternatives.Count == 0
+			? null
+			: $"^refs/remotes/{GitSvnRemotePrefix}(?:{string.Join("|", alternatives)})$";
+	}
+
+	/// <summary>
+	/// Whether a remote ref listed by <c>git branch -r</c>, such as <c>origin/experimental</c> or
+	/// <c>origin/tags/v1.0</c>, names a branch or tag the configuration excludes
+	/// </summary>
+	private bool IsExcludedRemoteRef(string remoteRef)
+	{
+		string name = remoteRef[GitSvnRemotePrefix.Length..];
+		return name.StartsWith(TagsPrefix, StringComparison.Ordinal)
+			? ExclusionNames(_config.ExcludeTags).Contains(name[TagsPrefix.Length..], StringComparer.Ordinal)
+			: ExclusionNames(_config.ExcludeBranches).Contains(name, StringComparer.Ordinal);
+	}
+
+	private static IEnumerable<string> ExclusionNames(IEnumerable<string> names) =>
+		names.Select(name => name.Trim()).Where(name => name.Length > 0);
+
+	/// <summary>
+	/// The prefix git-svn gives its remote refs by default since Git 2.0
+	/// </summary>
+	private const string GitSvnRemotePrefix = "origin/";
+
+	private const string TagsPrefix = "tags/";
 
 	/// <summary>
 	/// Resolves the configured SVN repository to the URL that git-svn expects
