@@ -1,3 +1,10 @@
+## v2.2.1-pre.1 (prerelease)
+
+Changes since v2.2.0:
+
+- Bump Polyfill from 11.4.0 to 11.4.1 ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- Bump the ktsu group with 2 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
 ## v2.2.0 (minor)
 
 Changes since v2.1.0:
@@ -50,19 +57,23 @@ Changes since v1.0.0:
 - docs: scope build badge to the default branch ([@matt-edmondson](https://github.com/matt-edmondson))
 - docs: correct README, DESCRIPTION and TAGS metadata ([@matt-edmondson](https://github.com/matt-edmondson))
 - Fix build errors from ktsu.Sdk analyzer updates (CA2016, KTSU0001, KTSU0002) [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 - Sync .editorconfig ([@KtsuTools](https://github.com/KtsuTools))
 - Sync global.json ([@KtsuTools](https://github.com/KtsuTools))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 - chore: update ktsu.Sdk to 2.21.1 [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
 - chore: remove merge conflict markers from package versions ([@matt-edmondson](https://github.com/matt-edmondson))
 - chore: remove SourceLink package versions from central props ([@matt-edmondson](https://github.com/matt-edmondson))
 - fix: resolve package reference merge conflicts ([@matt-edmondson](https://github.com/matt-edmondson))
 - Regenerate TAGS.md with NuGet package tags ([@matt-edmondson](https://github.com/matt-edmondson))
 - docs: replace placeholder README with usage and configuration reference ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 - Remove legacy build scripts ([@matt-edmondson](https://github.com/matt-edmondson))
 - compitibility suppressions ([@matt-edmondson](https://github.com/matt-edmondson))
 - Enhance project structure and code clarity by updating project files, adding parallelization support, and refining variable declarations for improved readability. ([@matt-edmondson](https://github.com/matt-edmondson))
 - migrate to dotnet 10 ([@matt-edmondson](https://github.com/matt-edmondson))
 - Refactor migration progress and result records to use primary constructors ([@matt-edmondson](https://github.com/matt-edmondson))
+- Remove .github\workflows\project.yml ([@matt-edmondson](https://github.com/matt-edmondson))
 - Update .editorconfig, .gitignore, and .runsettings for improved configuration; adjust package versions in Directory.Packages.props; enhance PSBuild.psm1 for better test coverage and release workflow; update global.json for SDK versioning. ([@matt-edmondson](https://github.com/matt-edmondson))
 
 ## v1.0.28 (patch)
@@ -149,8 +160,10 @@ Changes since v1.0.16:
 Changes since v1.0.15:
 
 - Fix build errors from ktsu.Sdk analyzer updates (CA2016, KTSU0001, KTSU0002) [patch] ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 - Sync .editorconfig ([@KtsuTools](https://github.com/KtsuTools))
 - Sync global.json ([@KtsuTools](https://github.com/KtsuTools))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 
 ## v1.0.15 (patch)
 
@@ -218,10 +231,13 @@ Changes since v1.0.5:
 
 - Regenerate TAGS.md with NuGet package tags ([@matt-edmondson](https://github.com/matt-edmondson))
 - docs: replace placeholder README with usage and configuration reference ([@matt-edmondson](https://github.com/matt-edmondson))
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 
 ## v1.0.6-pre.1 (prerelease)
 
-No significant changes detected since v1.0.6.
+Changes since v1.0.5:
+
+- Sync .github\workflows\dotnet.yml ([@KtsuTools](https://github.com/KtsuTools))
 
 ## v1.0.5 (patch)
 
@@ -235,7 +251,11 @@ Changes since v1.0.4:
 
 ## v1.0.5-pre.1 (prerelease)
 
-No significant changes detected since v1.0.5.
+Changes since v1.0.4:
+
+- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync .github\workflows\dotnet.yml ([@ktsu[bot]](https://github.com/ktsu[bot]))
 
 ## v1.0.4 (patch)
 
@@ -276,7 +296,12 @@ Changes since v1.0.3-pre.1:
 
 ## v1.0.3-pre.1 (prerelease)
 
-No significant changes detected since v1.0.3.
+Changes since v1.0.2:
+
+- Merge remote-tracking branch 'refs/remotes/origin/main' ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync scripts\PSBuild.psm1 ([@ktsu[bot]](https://github.com/ktsu[bot]))
+- Sync global.json ([@ktsu[bot]](https://github.com/ktsu[bot]))
 
 ## v1.0.2 (patch)
 
@@ -291,6 +316,7 @@ Changes since v1.0.0:
 - Enhance project structure and code clarity by updating project files, adding parallelization support, and refining variable declarations for improved readability. ([@matt-edmondson](https://github.com/matt-edmondson))
 - migrate to dotnet 10 ([@matt-edmondson](https://github.com/matt-edmondson))
 - Refactor migration progress and result records to use primary constructors ([@matt-edmondson](https://github.com/matt-edmondson))
+- Remove .github\workflows\project.yml ([@matt-edmondson](https://github.com/matt-edmondson))
 - Update .editorconfig, .gitignore, and .runsettings for improved configuration; adjust package versions in Directory.Packages.props; enhance PSBuild.psm1 for better test coverage and release workflow; update global.json for SDK versioning. ([@matt-edmondson](https://github.com/matt-edmondson))
 
 ## v1.0.1-pre.6 (prerelease)
@@ -331,7 +357,9 @@ Changes since v1.0.1-pre.1:
 
 ## v1.0.1-pre.1 (prerelease)
 
-No significant changes detected since v1.0.1.
+Changes since v1.0.0:
+
+- Bump the ktsu group with 1 update ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
 ## v1.0.0 (major)
 
