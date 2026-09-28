@@ -1,4 +1,6 @@
-## v2.1.0
+## v2.2.0 (minor)
 
-No significant changes detected since v2.1.0.
+Changes since v2.1.0:
+
+- Honor ExcludeTags and ExcludeBranches during migration ([@matt-edmondson](https://github.com/matt-edmondson))
 
