@@ -66,7 +66,7 @@ The TUI presents four options:
 | Preserve empty directories | no | Defaults to `yes`. |
 | Advanced options | no | Toggles exclude-tags / exclude-branches lists. |
 
-> The `ExcludeTags` and `ExcludeBranches` fields are accepted in the prompts but are not currently passed through to `git svn` — see open issues.
+> Excluded tags and branches are matched by exact name. They are passed to `git svn clone` as an `--ignore-refs` pattern so they are never fetched, and the cleanup phase does not create branches for them.
 
 ## Related
 
