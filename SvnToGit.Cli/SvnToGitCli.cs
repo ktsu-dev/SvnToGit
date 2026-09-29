@@ -118,14 +118,14 @@ public static class SvnToGitCli
 			AnsiConsole.MarkupLine("[red]Configuration validation failed:[/]");
 			foreach (string error in validationErrors)
 			{
-				AnsiConsole.MarkupLine($"[red]• {error}[/]");
+				AnsiConsole.MarkupLine(ErrorLine(error));
 			}
 
 			return;
 		}
 
 		// Confirm migration
-		if (!await AnsiConsole.ConfirmAsync($"Are you ready to migrate [yellow]{config.SvnRepositoryPath}[/] to [yellow]{config.GitRepositoryPath}[/]?").ConfigureAwait(false))
+		if (!await AnsiConsole.ConfirmAsync(ConfirmMigrationPrompt(config)).ConfigureAwait(false))
 		{
 			AnsiConsole.MarkupLine("[yellow]Migration cancelled.[/]");
 			return;
@@ -149,12 +149,7 @@ public static class SvnToGitCli
 				Progress<MigrationProgress> progress = new(p =>
 				{
 					task.Value = p.ProgressPercentage;
-					task.Description = $"[green]{p.Phase}[/]: {p.CurrentStep}";
-
-					if (p.Errors.Count > 0)
-					{
-						task.Description = $"[red]{p.Phase}[/]: {p.CurrentStep}";
-					}
+					task.Description = ProgressDescription(p);
 				});
 
 				MigrationResult result = await migrator.MigrateAsync(progress).ConfigureAwait(false);
@@ -162,7 +157,7 @@ public static class SvnToGitCli
 				if (result.Success)
 				{
 					task.Description = "[green]Migration completed successfully![/]";
-					AnsiConsole.MarkupLine($"[green]✅ Repository successfully migrated to: {result.GitRepositoryPath}[/]");
+					AnsiConsole.MarkupLine(SuccessLine(result.GitRepositoryPath));
 				}
 				else
 				{
@@ -170,7 +165,7 @@ public static class SvnToGitCli
 					AnsiConsole.MarkupLine("[red]❌ Migration failed with the following errors:[/]");
 					foreach (string error in result.Errors)
 					{
-						AnsiConsole.MarkupLine($"[red]• {error}[/]");
+						AnsiConsole.MarkupLine(ErrorLine(error));
 					}
 				}
 			}).ConfigureAwait(false);
@@ -223,7 +218,7 @@ public static class SvnToGitCli
 		else
 		{
 			Panel errorPanel = new Panel(
-				string.Join("\n", validationErrors.Select(e => $"[red]• {e}[/]")))
+				string.Join("\n", validationErrors.Select(ErrorLine)))
 				.Border(BoxBorder.Rounded)
 				.BorderColor(Color.Red)
 				.Header("[red]❌ Configuration Errors[/]");
@@ -231,6 +226,40 @@ public static class SvnToGitCli
 			AnsiConsole.Write(errorPanel);
 		}
 	}
+
+	// Paths, URLs and git output are escaped wherever they reach markup, because Spectre.Console reads any
+	// [...] in them as a style tag and throws on an IPv6 URL, a bracketed directory name or git-svn's stderr
+
+	/// <summary>
+	/// Builds the markup for one bulleted error line
+	/// </summary>
+	/// <param name="error">The error text, shown verbatim</param>
+	/// <returns>The markup</returns>
+	internal static string ErrorLine(string error) => $"[red]• {Markup.Escape(error)}[/]";
+
+	/// <summary>
+	/// Builds the markup for the prompt that confirms a migration
+	/// </summary>
+	/// <param name="config">The migration configuration, whose paths are shown verbatim</param>
+	/// <returns>The markup</returns>
+	internal static string ConfirmMigrationPrompt(SvnMigrationConfig config) =>
+		$"Are you ready to migrate [yellow]{Markup.Escape(config.SvnRepositoryPath)}[/] to [yellow]{Markup.Escape(config.GitRepositoryPath)}[/]?";
+
+	/// <summary>
+	/// Builds the markup for the progress task's description, in red once the report carries errors
+	/// </summary>
+	/// <param name="progress">The progress report, whose phase and step are shown verbatim</param>
+	/// <returns>The markup</returns>
+	internal static string ProgressDescription(MigrationProgress progress) =>
+		$"[{(progress.Errors.Count > 0 ? "red" : "green")}]{Markup.Escape(progress.Phase)}[/]: {Markup.Escape(progress.CurrentStep)}";
+
+	/// <summary>
+	/// Builds the markup for the line reporting a successful migration
+	/// </summary>
+	/// <param name="gitRepositoryPath">The migrated repository's path, shown verbatim</param>
+	/// <returns>The markup</returns>
+	internal static string SuccessLine(string? gitRepositoryPath) =>
+		$"[green]✅ Repository successfully migrated to: {Markup.Escape(gitRepositoryPath ?? string.Empty)}[/]";
 
 	private static SvnMigrationConfig? CollectMigrationConfiguration()
 	{
