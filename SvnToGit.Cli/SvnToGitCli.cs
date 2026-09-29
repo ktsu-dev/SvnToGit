@@ -116,64 +116,19 @@ public static class SvnToGitCli
 		if (validationErrors.Count > 0)
 		{
 			AnsiConsole.MarkupLine("[red]Configuration validation failed:[/]");
-			foreach (string error in validationErrors)
-			{
-				AnsiConsole.MarkupLine($"[red]• {error}[/]");
-			}
-
+			WriteErrors(AnsiConsole.Console, validationErrors);
 			return;
 		}
 
 		// Confirm migration
-		if (!await AnsiConsole.ConfirmAsync($"Are you ready to migrate [yellow]{config.SvnRepositoryPath}[/] to [yellow]{config.GitRepositoryPath}[/]?").ConfigureAwait(false))
+		if (!await AnsiConsole.ConfirmAsync(ConfirmMigrationPrompt(config)).ConfigureAwait(false))
 		{
 			AnsiConsole.MarkupLine("[yellow]Migration cancelled.[/]");
 			return;
 		}
 
 		// Perform migration with progress tracking
-		await AnsiConsole.Progress()
-			.Columns(
-			[
-				new TaskDescriptionColumn(),
-				new ProgressBarColumn(),
-				new PercentageColumn(),
-				new RemainingTimeColumn(),
-				new SpinnerColumn(),
-			])
-			.StartAsync(async ctx =>
-			{
-				ProgressTask task = ctx.AddTask("[green]Migrating repository[/]");
-				task.MaxValue = 100;
-
-				Progress<MigrationProgress> progress = new(p =>
-				{
-					task.Value = p.ProgressPercentage;
-					task.Description = $"[green]{p.Phase}[/]: {p.CurrentStep}";
-
-					if (p.Errors.Count > 0)
-					{
-						task.Description = $"[red]{p.Phase}[/]: {p.CurrentStep}";
-					}
-				});
-
-				MigrationResult result = await migrator.MigrateAsync(progress).ConfigureAwait(false);
-
-				if (result.Success)
-				{
-					task.Description = "[green]Migration completed successfully![/]";
-					AnsiConsole.MarkupLine($"[green]✅ Repository successfully migrated to: {result.GitRepositoryPath}[/]");
-				}
-				else
-				{
-					task.Description = "[red]Migration failed[/]";
-					AnsiConsole.MarkupLine("[red]❌ Migration failed with the following errors:[/]");
-					foreach (string error in result.Errors)
-					{
-						AnsiConsole.MarkupLine($"[red]• {error}[/]");
-					}
-				}
-			}).ConfigureAwait(false);
+		await RunMigrationAsync(AnsiConsole.Console, migrator).ConfigureAwait(false);
 	}
 
 	private static async Task ValidateConfiguration()
@@ -223,12 +178,113 @@ public static class SvnToGitCli
 		else
 		{
 			Panel errorPanel = new Panel(
-				string.Join("\n", validationErrors.Select(e => $"[red]• {e}[/]")))
+				string.Join("\n", validationErrors.Select(ErrorLine)))
 				.Border(BoxBorder.Rounded)
 				.BorderColor(Color.Red)
 				.Header("[red]❌ Configuration Errors[/]");
 
 			AnsiConsole.Write(errorPanel);
+		}
+	}
+
+	// Paths, URLs and git output are escaped wherever they reach markup, because Spectre.Console reads any
+	// [...] in them as a style tag and throws on an IPv6 URL, a bracketed directory name or git-svn's stderr
+
+	/// <summary>
+	/// Builds the markup for one bulleted error line
+	/// </summary>
+	/// <param name="error">The error text, shown verbatim</param>
+	/// <returns>The markup</returns>
+	internal static string ErrorLine(string error) => $"[red]• {Markup.Escape(error)}[/]";
+
+	/// <summary>
+	/// Builds the markup for the prompt that confirms a migration
+	/// </summary>
+	/// <param name="config">The migration configuration, whose paths are shown verbatim</param>
+	/// <returns>The markup</returns>
+	internal static string ConfirmMigrationPrompt(SvnMigrationConfig config) =>
+		$"Are you ready to migrate [yellow]{Markup.Escape(config.SvnRepositoryPath)}[/] to [yellow]{Markup.Escape(config.GitRepositoryPath)}[/]?";
+
+	/// <summary>
+	/// Builds the markup for the progress task's description, in red once the report carries errors
+	/// </summary>
+	/// <param name="progress">The progress report, whose phase and step are shown verbatim</param>
+	/// <returns>The markup</returns>
+	internal static string ProgressDescription(MigrationProgress progress) =>
+		$"[{(progress.Errors.Count > 0 ? "red" : "green")}]{Markup.Escape(progress.Phase)}[/]: {Markup.Escape(progress.CurrentStep)}";
+
+	/// <summary>
+	/// Builds the markup for the line reporting a successful migration
+	/// </summary>
+	/// <param name="gitRepositoryPath">The migrated repository's path, shown verbatim</param>
+	/// <returns>The markup</returns>
+	internal static string SuccessLine(string? gitRepositoryPath) =>
+		$"[green]✅ Repository successfully migrated to: {Markup.Escape(gitRepositoryPath ?? string.Empty)}[/]";
+
+	/// <summary>
+	/// Runs a migration behind a progress bar, then reports its outcome
+	/// </summary>
+	/// <param name="console">The console to show progress and the outcome on</param>
+	/// <param name="migrator">The migrator to run</param>
+	/// <returns>A task that completes when the migration and its report have finished</returns>
+	internal static async Task RunMigrationAsync(IAnsiConsole console, SvnToGitMigrator migrator)
+	{
+		await console.Progress()
+			.Columns(
+			[
+				new TaskDescriptionColumn(),
+				new ProgressBarColumn(),
+				new PercentageColumn(),
+				new RemainingTimeColumn(),
+				new SpinnerColumn(),
+			])
+			.StartAsync(async ctx =>
+			{
+				ProgressTask task = ctx.AddTask("[green]Migrating repository[/]");
+				task.MaxValue = 100;
+
+				Progress<MigrationProgress> progress = new(p =>
+				{
+					task.Value = p.ProgressPercentage;
+					task.Description = ProgressDescription(p);
+				});
+
+				MigrationResult result = await migrator.MigrateAsync(progress).ConfigureAwait(false);
+				ReportResult(console, task, result);
+			}).ConfigureAwait(false);
+	}
+
+	/// <summary>
+	/// Shows the outcome of a migration on the console and in the progress task's description
+	/// </summary>
+	/// <param name="console">The console to write to</param>
+	/// <param name="task">The migration's progress task</param>
+	/// <param name="result">The migration result</param>
+	internal static void ReportResult(IAnsiConsole console, ProgressTask task, MigrationResult result)
+	{
+		if (result.Success)
+		{
+			task.Description = "[green]Migration completed successfully![/]";
+			console.MarkupLine(SuccessLine(result.GitRepositoryPath));
+		}
+		else
+		{
+			task.Description = "[red]Migration failed[/]";
+			console.MarkupLine("[red]❌ Migration failed with the following errors:[/]");
+			WriteErrors(console, result.Errors);
+		}
+	}
+
+	/// <summary>
+	/// Writes each error as a bulleted line
+	/// </summary>
+	/// <param name="console">The console to write to</param>
+	/// <param name="errors">The errors, shown verbatim</param>
+	internal static void WriteErrors(IAnsiConsole console, IEnumerable<string> errors)
+	{
+		foreach (string error in errors)
+		{
+			console.MarkupLine(ErrorLine(error));
 		}
 	}
 
