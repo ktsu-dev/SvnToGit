@@ -101,6 +101,33 @@ public class SvnToGitCliMarkupTests
 	}
 
 	[TestMethod]
+	public async Task RunMigrationAsync_GitFailsWithBracketedError_ReportsTheError()
+	{
+		string directory = Path.Combine(Path.GetTempPath(), $"svntogit-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directory);
+
+		try
+		{
+			SvnMigrationConfig config = new()
+			{
+				SvnRepositoryPath = directory,
+				GitRepositoryPath = Path.Combine(directory, "git"),
+			};
+			SvnToGitMigrator migrator = new(config, (_, arguments, _) => Task.FromResult(
+				arguments.Contains("clone") ? new ProcessResult(128, string.Empty, GitSvnError) : new ProcessResult(0, string.Empty, string.Empty)));
+			(IAnsiConsole console, StringWriter writer) = CreateConsole();
+
+			await SvnToGitCli.RunMigrationAsync(console, migrator).ConfigureAwait(false);
+
+			Assert.Contains($"• Cloning failed: {GitSvnError}", writer.ToString());
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[TestMethod]
 	public void WriteErrors_ValidationErrorsWithBrackets_PrintsEachVerbatim()
 	{
 		(IAnsiConsole console, StringWriter writer) = CreateConsole();

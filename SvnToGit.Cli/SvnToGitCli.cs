@@ -128,29 +128,7 @@ public static class SvnToGitCli
 		}
 
 		// Perform migration with progress tracking
-		await AnsiConsole.Progress()
-			.Columns(
-			[
-				new TaskDescriptionColumn(),
-				new ProgressBarColumn(),
-				new PercentageColumn(),
-				new RemainingTimeColumn(),
-				new SpinnerColumn(),
-			])
-			.StartAsync(async ctx =>
-			{
-				ProgressTask task = ctx.AddTask("[green]Migrating repository[/]");
-				task.MaxValue = 100;
-
-				Progress<MigrationProgress> progress = new(p =>
-				{
-					task.Value = p.ProgressPercentage;
-					task.Description = ProgressDescription(p);
-				});
-
-				MigrationResult result = await migrator.MigrateAsync(progress).ConfigureAwait(false);
-				ReportResult(AnsiConsole.Console, task, result);
-			}).ConfigureAwait(false);
+		await RunMigrationAsync(AnsiConsole.Console, migrator).ConfigureAwait(false);
 	}
 
 	private static async Task ValidateConfiguration()
@@ -242,6 +220,39 @@ public static class SvnToGitCli
 	/// <returns>The markup</returns>
 	internal static string SuccessLine(string? gitRepositoryPath) =>
 		$"[green]✅ Repository successfully migrated to: {Markup.Escape(gitRepositoryPath ?? string.Empty)}[/]";
+
+	/// <summary>
+	/// Runs a migration behind a progress bar, then reports its outcome
+	/// </summary>
+	/// <param name="console">The console to show progress and the outcome on</param>
+	/// <param name="migrator">The migrator to run</param>
+	/// <returns>A task that completes when the migration and its report have finished</returns>
+	internal static async Task RunMigrationAsync(IAnsiConsole console, SvnToGitMigrator migrator)
+	{
+		await console.Progress()
+			.Columns(
+			[
+				new TaskDescriptionColumn(),
+				new ProgressBarColumn(),
+				new PercentageColumn(),
+				new RemainingTimeColumn(),
+				new SpinnerColumn(),
+			])
+			.StartAsync(async ctx =>
+			{
+				ProgressTask task = ctx.AddTask("[green]Migrating repository[/]");
+				task.MaxValue = 100;
+
+				Progress<MigrationProgress> progress = new(p =>
+				{
+					task.Value = p.ProgressPercentage;
+					task.Description = ProgressDescription(p);
+				});
+
+				MigrationResult result = await migrator.MigrateAsync(progress).ConfigureAwait(false);
+				ReportResult(console, task, result);
+			}).ConfigureAwait(false);
+	}
 
 	/// <summary>
 	/// Shows the outcome of a migration on the console and in the progress task's description
