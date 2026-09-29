@@ -11,6 +11,8 @@ using ktsu.SvnToGit.Core;
 [TestClass]
 public class SvnToGitMigratorTests
 {
+	private static readonly string[] ExpectedLocalBranches = ["master", "feature", "tags/v1.0"];
+
 	public TestContext TestContext { get; set; } = null!;
 
 	[TestMethod]
@@ -65,7 +67,7 @@ public class SvnToGitMigratorTests
 
 		try
 		{
-			SvnToGitMigrator migrator = new(CreateConfig(directory), StubRunner(failWhen: args => args.Contains("checkout")));
+			SvnToGitMigrator migrator = new(CreateConfig(directory), StubRunner(failWhen: args => args.Contains("branch") && !args.Contains("-r")));
 
 			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
 
@@ -188,15 +190,39 @@ public class SvnToGitMigratorTests
 			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
 
 			Assert.IsTrue(result.Success);
-			string[] checkouts = [.. commands.Where(c => c.Contains(" checkout -b ", StringComparison.Ordinal))];
+			string[] created = [.. commands.Where(c => c.Contains(" branch ", StringComparison.Ordinal) && !c.Contains(" branch -r ", StringComparison.Ordinal))];
 			string log = string.Join(Environment.NewLine, commands);
-			Assert.HasCount(2, checkouts, log);
-			Assert.IsTrue(checkouts.Any(c => c.Contains(" origin/feature ", StringComparison.Ordinal)), log);
-			Assert.IsTrue(checkouts.Any(c => c.Contains(" origin/tags/v2.0 ", StringComparison.Ordinal)), log);
+			Assert.HasCount(2, created, log);
+			Assert.IsTrue(created.Any(c => c.Contains(" origin/feature ", StringComparison.Ordinal)), log);
+			Assert.IsTrue(created.Any(c => c.Contains(" origin/tags/v2.0 ", StringComparison.Ordinal)), log);
 		}
 		finally
 		{
 			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public async Task MigrateAsync_CreatesLocalBranchesWithoutMovingHeadOffTrunk()
+	{
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			SvnMigrationConfig config = CreateConfig(directory);
+			await CreateGitSvnCloneAsync(config.GitRepositoryPath).ConfigureAwait(false);
+			SvnToGitMigrator migrator = new(config, RealGitRunnerWithStubbedSvn());
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsTrue(result.Success, string.Join(Environment.NewLine, result.Errors));
+			Assert.AreEqual("refs/heads/master", await GitAsync(config.GitRepositoryPath, "symbolic-ref", "HEAD").ConfigureAwait(false));
+			string localBranches = await GitAsync(config.GitRepositoryPath, "branch", "--format=%(refname:short)").ConfigureAwait(false);
+			CollectionAssert.AreEquivalent(ExpectedLocalBranches, localBranches.Split('\n'));
+		}
+		finally
+		{
+			DeleteDirectory(directory);
 		}
 	}
 
@@ -239,6 +265,54 @@ public class SvnToGitMigratorTests
 			string output = args.Contains("branch") && args.Contains("-r") ? remoteBranches : string.Empty;
 			return Task.FromResult(new ProcessResult(0, output, string.Empty));
 		};
+
+	/// <summary>
+	/// Returns a runner that answers the git-svn commands itself, so no SVN server or git-svn install is
+	/// needed, and runs every other git command for real.
+	/// </summary>
+	private static Func<string, IEnumerable<string>, CancellationToken, Task<ProcessResult>> RealGitRunnerWithStubbedSvn() =>
+		(fileName, arguments, cancellationToken) =>
+		{
+			string[] args = [.. arguments];
+			return args.Length > 0 && args[0] == "svn"
+				? Task.FromResult(new ProcessResult(0, string.Empty, string.Empty))
+				: ProcessRunner.RunCommandAsync(fileName, args, cancellationToken);
+		};
+
+	/// <summary>
+	/// Builds the repository <c>git svn clone --stdlayout</c> leaves behind for an SVN repository with trunk,
+	/// a <c>feature</c> branch and a <c>v1.0</c> tag: <c>master</c> checked out on trunk, and one remote ref each.
+	/// </summary>
+	private static async Task CreateGitSvnCloneAsync(string path)
+	{
+		Directory.CreateDirectory(path);
+		await GitAsync(path, "init", "--initial-branch=master").ConfigureAwait(false);
+		await GitAsync(path, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-m", "trunk").ConfigureAwait(false);
+		foreach (string remote in new[] { "trunk", "feature", "tags/v1.0" })
+		{
+			await GitAsync(path, "update-ref", $"refs/remotes/origin/{remote}", "HEAD").ConfigureAwait(false);
+		}
+	}
+
+	private static async Task<string> GitAsync(string path, params string[] arguments)
+	{
+		ProcessResult result = await ProcessRunner.RunCommandAsync("git", ["-C", path, .. arguments]).ConfigureAwait(false);
+		Assert.AreEqual(0, result.ExitCode, result.StandardError);
+		return result.StandardOutput.Trim();
+	}
+
+	/// <summary>
+	/// Deletes a directory that may hold a git repository, whose object files git marks read-only.
+	/// </summary>
+	private static void DeleteDirectory(string directory)
+	{
+		foreach (string file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+		{
+			File.SetAttributes(file, FileAttributes.Normal);
+		}
+
+		Directory.Delete(directory, recursive: true);
+	}
 
 	private static string CreateTempDirectory()
 	{
