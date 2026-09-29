@@ -1,6 +1,7 @@
-## v2.2.3 (patch)
+## v2.2.4 (patch)
 
-Changes since v2.2.2:
+Changes since v2.2.3:
 
-- Move CI onto the shared ci-shared.yml pipeline ([@Claude](https://github.com/Claude))
+- Leave .gitignore as it was; the SDK build rewrote it ([@Claude](https://github.com/Claude))
+- Show migration warnings, such as a failed git gc, in the CLI [patch] ([@Claude](https://github.com/Claude))
 
