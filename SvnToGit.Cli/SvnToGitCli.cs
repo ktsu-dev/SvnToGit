@@ -116,11 +116,7 @@ public static class SvnToGitCli
 		if (validationErrors.Count > 0)
 		{
 			AnsiConsole.MarkupLine("[red]Configuration validation failed:[/]");
-			foreach (string error in validationErrors)
-			{
-				AnsiConsole.MarkupLine(ErrorLine(error));
-			}
-
+			WriteErrors(AnsiConsole.Console, validationErrors);
 			return;
 		}
 
@@ -153,21 +149,7 @@ public static class SvnToGitCli
 				});
 
 				MigrationResult result = await migrator.MigrateAsync(progress).ConfigureAwait(false);
-
-				if (result.Success)
-				{
-					task.Description = "[green]Migration completed successfully![/]";
-					AnsiConsole.MarkupLine(SuccessLine(result.GitRepositoryPath));
-				}
-				else
-				{
-					task.Description = "[red]Migration failed[/]";
-					AnsiConsole.MarkupLine("[red]❌ Migration failed with the following errors:[/]");
-					foreach (string error in result.Errors)
-					{
-						AnsiConsole.MarkupLine(ErrorLine(error));
-					}
-				}
+				ReportResult(AnsiConsole.Console, task, result);
 			}).ConfigureAwait(false);
 	}
 
@@ -260,6 +242,40 @@ public static class SvnToGitCli
 	/// <returns>The markup</returns>
 	internal static string SuccessLine(string? gitRepositoryPath) =>
 		$"[green]✅ Repository successfully migrated to: {Markup.Escape(gitRepositoryPath ?? string.Empty)}[/]";
+
+	/// <summary>
+	/// Shows the outcome of a migration on the console and in the progress task's description
+	/// </summary>
+	/// <param name="console">The console to write to</param>
+	/// <param name="task">The migration's progress task</param>
+	/// <param name="result">The migration result</param>
+	internal static void ReportResult(IAnsiConsole console, ProgressTask task, MigrationResult result)
+	{
+		if (result.Success)
+		{
+			task.Description = "[green]Migration completed successfully![/]";
+			console.MarkupLine(SuccessLine(result.GitRepositoryPath));
+		}
+		else
+		{
+			task.Description = "[red]Migration failed[/]";
+			console.MarkupLine("[red]❌ Migration failed with the following errors:[/]");
+			WriteErrors(console, result.Errors);
+		}
+	}
+
+	/// <summary>
+	/// Writes each error as a bulleted line
+	/// </summary>
+	/// <param name="console">The console to write to</param>
+	/// <param name="errors">The errors, shown verbatim</param>
+	internal static void WriteErrors(IAnsiConsole console, IEnumerable<string> errors)
+	{
+		foreach (string error in errors)
+		{
+			console.MarkupLine(ErrorLine(error));
+		}
+	}
 
 	private static SvnMigrationConfig? CollectMigrationConfiguration()
 	{
