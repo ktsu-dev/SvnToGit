@@ -273,6 +273,30 @@ public static class SvnToGitCli
 			console.MarkupLine("[red]❌ Migration failed with the following errors:[/]");
 			WriteErrors(console, result.Errors);
 		}
+
+		// A warning is something the library chose not to fail the migration over, such as a git gc that left
+		// the repository unoptimized, so it is shown whichever way the migration went
+		WriteWarnings(console, result.Warnings);
+	}
+
+	/// <summary>
+	/// Builds the markup for one warning line
+	/// </summary>
+	/// <param name="warning">The warning text, shown verbatim</param>
+	/// <returns>The markup</returns>
+	internal static string WarningLine(string warning) => $"[yellow]⚠ {Markup.Escape(warning)}[/]";
+
+	/// <summary>
+	/// Writes each warning on its own line
+	/// </summary>
+	/// <param name="console">The console to write to</param>
+	/// <param name="warnings">The warnings, shown verbatim</param>
+	internal static void WriteWarnings(IAnsiConsole console, IEnumerable<string> warnings)
+	{
+		foreach (string warning in warnings)
+		{
+			console.MarkupLine(WarningLine(warning));
+		}
 	}
 
 	/// <summary>
