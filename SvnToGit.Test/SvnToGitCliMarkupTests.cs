@@ -128,6 +128,82 @@ public class SvnToGitCliMarkupTests
 	}
 
 	[TestMethod]
+	public void ReportResult_SuccessWithWarnings_PrintsEachWarningVerbatim()
+	{
+		(IAnsiConsole console, StringWriter writer) = CreateConsole();
+		ProgressTask task = new(0, "Migrating", 100);
+		string warning = $"Finalization: git gc failed: {GitSvnError}";
+		MigrationResult result = new(true, BracketedPath, "done")
+		{
+			Warnings = [warning],
+		};
+
+		SvnToGitCli.ReportResult(console, task, result);
+
+		string output = writer.ToString();
+		Assert.Contains($"✅ Repository successfully migrated to: {BracketedPath}", output);
+		Assert.Contains($"⚠ {warning}", output);
+	}
+
+	[TestMethod]
+	public void ReportResult_FailureWithWarnings_PrintsErrorsAndWarnings()
+	{
+		(IAnsiConsole console, StringWriter writer) = CreateConsole();
+		ProgressTask task = new(0, "Migrating", 100);
+		MigrationResult result = new(false, null, null)
+		{
+			Errors = ["Cloning failed"],
+			Warnings = [BracketedPath],
+		};
+
+		SvnToGitCli.ReportResult(console, task, result);
+
+		string output = writer.ToString();
+		Assert.Contains("• Cloning failed", output);
+		Assert.Contains($"⚠ {BracketedPath}", output);
+	}
+
+	[TestMethod]
+	public void ReportResult_SuccessWithoutWarnings_PrintsNoWarningLine()
+	{
+		(IAnsiConsole console, StringWriter writer) = CreateConsole();
+		ProgressTask task = new(0, "Migrating", 100);
+
+		SvnToGitCli.ReportResult(console, task, new MigrationResult(true, BracketedPath, "done"));
+
+		Assert.DoesNotContain("⚠", writer.ToString());
+	}
+
+	[TestMethod]
+	public async Task RunMigrationAsync_GarbageCollectionFails_ReportsTheWarning()
+	{
+		string directory = Path.Combine(Path.GetTempPath(), $"svntogit-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(directory);
+
+		try
+		{
+			SvnMigrationConfig config = new()
+			{
+				SvnRepositoryPath = directory,
+				GitRepositoryPath = Path.Combine(directory, "git"),
+			};
+			SvnToGitMigrator migrator = new(config, (_, arguments, _) => Task.FromResult(
+				arguments.Contains("gc") ? new ProcessResult(128, string.Empty, "fatal: Unable to create '.git/gc.pid.lock': File exists") : new ProcessResult(0, string.Empty, string.Empty)));
+			(IAnsiConsole console, StringWriter writer) = CreateConsole();
+
+			await SvnToGitCli.RunMigrationAsync(console, migrator).ConfigureAwait(false);
+
+			string output = writer.ToString();
+			Assert.Contains("Repository successfully migrated", output);
+			Assert.Contains("git gc failed: fatal: Unable to create '.git/gc.pid.lock': File exists", output);
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[TestMethod]
 	public void WriteErrors_ValidationErrorsWithBrackets_PrintsEachVerbatim()
 	{
 		(IAnsiConsole console, StringWriter writer) = CreateConsole();
