@@ -66,7 +66,7 @@ The TUI presents four options:
 | Preserve empty directories | no | Defaults to `yes`. |
 | Advanced options | no | Toggles exclude-tags / exclude-branches lists. |
 
-> Excluded tags and branches are matched by exact name. They are passed to `git svn clone` as an `--ignore-refs` pattern so they are never fetched, and the cleanup phase does not create branches for them.
+> Excluded tags and branches are matched by exact name. They are passed to `git svn clone` as an `--ignore-refs` pattern so they are never fetched, and the cleanup phase does not create branches or tags for them. Every other SVN tag becomes a Git tag, on the copied revision when the tag commit git-svn records changes nothing.
 
 ## Related
 

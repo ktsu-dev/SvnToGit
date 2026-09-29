@@ -11,7 +11,9 @@ using ktsu.SvnToGit.Core;
 [TestClass]
 public class SvnToGitMigratorTests
 {
-	private static readonly string[] ExpectedLocalBranches = ["master", "feature", "tags/v1.0"];
+	private static readonly string[] ExpectedLocalBranches = ["master", "feature", "trunk-fixes", "fix-git-svn-import"];
+
+	private static readonly string[] ExpectedTags = ["1.0", "2.0"];
 
 	public TestContext TestContext { get; set; } = null!;
 
@@ -190,11 +192,11 @@ public class SvnToGitMigratorTests
 			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
 
 			Assert.IsTrue(result.Success);
-			string[] created = [.. commands.Where(c => c.Contains(" branch ", StringComparison.Ordinal) && !c.Contains(" branch -r ", StringComparison.Ordinal))];
+			string[] created = [.. commands.Where(c => (c.Contains(" branch ", StringComparison.Ordinal) && !c.Contains(" branch -r ", StringComparison.Ordinal)) || c.Contains(" tag ", StringComparison.Ordinal))];
 			string log = string.Join(Environment.NewLine, commands);
 			Assert.HasCount(2, created, log);
-			Assert.IsTrue(created.Any(c => c.Contains(" origin/feature ", StringComparison.Ordinal)), log);
-			Assert.IsTrue(created.Any(c => c.Contains(" origin/tags/v2.0 ", StringComparison.Ordinal)), log);
+			Assert.IsTrue(created.Any(c => c.Contains(" branch feature origin/feature ", StringComparison.Ordinal)), log);
+			Assert.IsTrue(created.Any(c => c.Contains(" tag v2.0 origin/tags/v2.0 ", StringComparison.Ordinal)), log);
 		}
 		finally
 		{
@@ -219,6 +221,39 @@ public class SvnToGitMigratorTests
 			Assert.AreEqual("refs/heads/master", await GitAsync(config.GitRepositoryPath, "symbolic-ref", "HEAD").ConfigureAwait(false));
 			string localBranches = await GitAsync(config.GitRepositoryPath, "branch", "--format=%(refname:short)").ConfigureAwait(false);
 			CollectionAssert.AreEquivalent(ExpectedLocalBranches, localBranches.Split('\n'));
+		}
+		finally
+		{
+			DeleteDirectory(directory);
+		}
+	}
+
+	[TestMethod]
+	public async Task MigrateAsync_TurnsSvnTagsIntoGitTagsRatherThanBranches()
+	{
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			SvnMigrationConfig config = CreateConfig(directory);
+			await CreateGitSvnCloneAsync(config.GitRepositoryPath).ConfigureAwait(false);
+			SvnToGitMigrator migrator = new(config, RealGitRunnerWithStubbedSvn());
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsTrue(result.Success, string.Join(Environment.NewLine, result.Errors));
+			string tags = await GitAsync(config.GitRepositoryPath, "tag", "--list").ConfigureAwait(false);
+			CollectionAssert.AreEquivalent(ExpectedTags, tags.Split('\n'));
+
+			// 1.0 was a plain copy, so its tag commit changes nothing and the tag names the copied trunk revision
+			Assert.AreEqual(
+				await GitAsync(config.GitRepositoryPath, "rev-parse", "master").ConfigureAwait(false),
+				await GitAsync(config.GitRepositoryPath, "rev-parse", "1.0^{commit}").ConfigureAwait(false));
+
+			// 2.0 changed a file in the tag, so the tag keeps that commit
+			Assert.AreEqual(
+				await GitAsync(config.GitRepositoryPath, "rev-parse", "refs/remotes/origin/tags/2.0").ConfigureAwait(false),
+				await GitAsync(config.GitRepositoryPath, "rev-parse", "2.0^{commit}").ConfigureAwait(false));
 		}
 		finally
 		{
@@ -281,18 +316,39 @@ public class SvnToGitMigratorTests
 
 	/// <summary>
 	/// Builds the repository <c>git svn clone --stdlayout</c> leaves behind for an SVN repository with trunk,
-	/// a <c>feature</c> branch and a <c>v1.0</c> tag: <c>master</c> checked out on trunk, and one remote ref each.
+	/// branches <c>feature</c>, <c>trunk-fixes</c> and <c>fix-git-svn-import</c>, and tags <c>1.0</c> and
+	/// <c>2.0</c>: <c>master</c> checked out on trunk, and one remote ref each. As git-svn records them, each
+	/// tag is a commit on top of trunk: <c>1.0</c> an empty copy, and <c>2.0</c> a copy with a change of its own.
 	/// </summary>
 	private static async Task CreateGitSvnCloneAsync(string path)
 	{
 		Directory.CreateDirectory(path);
 		await GitAsync(path, "init", "--initial-branch=master").ConfigureAwait(false);
-		await GitAsync(path, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-m", "trunk").ConfigureAwait(false);
-		foreach (string remote in new[] { "trunk", "feature", "tags/v1.0" })
+		await CommitAsync(path, "trunk").ConfigureAwait(false);
+		foreach (string remote in new[] { "trunk", "feature", "trunk-fixes", "fix-git-svn-import" })
 		{
 			await GitAsync(path, "update-ref", $"refs/remotes/origin/{remote}", "HEAD").ConfigureAwait(false);
 		}
+
+		string trunk = await GitAsync(path, "rev-parse", "HEAD").ConfigureAwait(false);
+		await GitAsync(path, "update-ref", "refs/remotes/origin/tags/1.0", await CommitTreeAsync(path, trunk, "Create tag 1.0").ConfigureAwait(false)).ConfigureAwait(false);
+
+		await GitAsync(path, "checkout", "--detach", "--quiet").ConfigureAwait(false);
+		await File.WriteAllTextAsync(Path.Combine(path, "version.txt"), "2.0").ConfigureAwait(false);
+		await GitAsync(path, "add", "version.txt").ConfigureAwait(false);
+		await CommitAsync(path, "Create tag 2.0").ConfigureAwait(false);
+		await GitAsync(path, "update-ref", "refs/remotes/origin/tags/2.0", "HEAD").ConfigureAwait(false);
+		await GitAsync(path, "checkout", "--quiet", "master").ConfigureAwait(false);
 	}
+
+	private static Task<string> CommitAsync(string path, string message) =>
+		GitAsync(path, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-m", message);
+
+	/// <summary>
+	/// Creates a commit on top of <paramref name="parent"/> with the same tree, without moving any branch
+	/// </summary>
+	private static Task<string> CommitTreeAsync(string path, string parent, string message) =>
+		GitAsync(path, "-c", "user.name=test", "-c", "user.email=test@example.com", "commit-tree", $"{parent}^{{tree}}", "-p", parent, "-m", message);
 
 	private static async Task<string> GitAsync(string path, params string[] arguments)
 	{
