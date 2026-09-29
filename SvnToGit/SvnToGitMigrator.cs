@@ -218,28 +218,71 @@ public class SvnToGitMigrator
 			return result;
 		}
 
-		// Parse remote branches and create local ones
-		List<string> remoteBranches = [.. result.StandardOutput
+		// Parse remote refs. Trunk is already the checked-out branch, and git-svn is the single-ref
+		// remote a non-stdlayout clone makes; both are matched exactly, so a branch whose name merely
+		// contains "trunk" or "git-svn" is still migrated.
+		List<string> remoteRefs = [.. result.StandardOutput
 			.Split('\n', StringSplitOptions.RemoveEmptyEntries)
 			.Select(line => line.Trim())
-			.Where(line => line.IndexOf("git-svn", StringComparison.Ordinal) < 0 && line.IndexOf("trunk", StringComparison.Ordinal) < 0 && line.StartsWith("origin/", StringComparison.OrdinalIgnoreCase))
+			.Where(line => line.StartsWith(GitSvnRemotePrefix, StringComparison.Ordinal))
+			.Where(line => line is not TrunkRemoteRef and not GitSvnRemoteRef)
 			.Where(line => !IsExcludedRemoteRef(line))];
 
-		foreach (string remoteBranch in remoteBranches)
+		foreach (string remoteRef in remoteRefs)
 		{
-			string branchName = remoteBranch.StartsWith("origin/", StringComparison.OrdinalIgnoreCase)
-				? remoteBranch[7..]
-				: remoteBranch;
-			// git branch creates the ref without checking it out, so HEAD stays on the trunk branch git-svn set up
-			List<string> createBranchArgs = ["-C", _config.GitRepositoryPath, "branch", branchName, remoteBranch];
-			GitCommandResult branchResult = await RunGitCommandAsync(createBranchArgs, progress, cancellationToken).ConfigureAwait(false);
-			if (!branchResult.Success)
+			string name = remoteRef[GitSvnRemotePrefix.Length..];
+			GitCommandResult refResult = name.StartsWith(TagsPrefix, StringComparison.Ordinal)
+				? await CreateTagAsync(name[TagsPrefix.Length..], remoteRef, progress, cancellationToken).ConfigureAwait(false)
+				: await CreateBranchAsync(name, remoteRef, progress, cancellationToken).ConfigureAwait(false);
+			if (!refResult.Success)
 			{
-				return branchResult with { StandardError = $"could not create branch {branchName}: {branchResult.StandardError}" };
+				return refResult;
 			}
 		}
 
 		return result;
+	}
+
+	private async Task<GitCommandResult> CreateBranchAsync(string branchName, string remoteRef, IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)
+	{
+		// git branch creates the ref without checking it out, so HEAD stays on the trunk branch git-svn set up
+		List<string> createBranchArgs = ["-C", _config.GitRepositoryPath, "branch", branchName, remoteRef];
+		GitCommandResult branchResult = await RunGitCommandAsync(createBranchArgs, progress, cancellationToken).ConfigureAwait(false);
+		return branchResult.Success
+			? branchResult
+			: branchResult with { StandardError = $"could not create branch {branchName}: {branchResult.StandardError}" };
+	}
+
+	private async Task<GitCommandResult> CreateTagAsync(string tagName, string remoteRef, IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)
+	{
+		// An SVN tag is a copy, which git-svn records as a commit on top of the copied revision. When
+		// that commit changes nothing, tag the revision it copied, as the usual git-svn idiom does.
+		string target = await IsEmptyCopyCommitAsync(remoteRef, cancellationToken).ConfigureAwait(false)
+			? $"{remoteRef}^"
+			: remoteRef;
+
+		List<string> createTagArgs = ["-C", _config.GitRepositoryPath, "tag", tagName, target];
+		GitCommandResult tagResult = await RunGitCommandAsync(createTagArgs, progress, cancellationToken).ConfigureAwait(false);
+		return tagResult.Success
+			? tagResult
+			: tagResult with { StandardError = $"could not create tag {tagName}: {tagResult.StandardError}" };
+	}
+
+	/// <summary>
+	/// Whether <paramref name="commitRef"/> has a parent with the same tree, meaning the commit only
+	/// records the SVN copy and adds no change of its own
+	/// </summary>
+	private async Task<bool> IsEmptyCopyCommitAsync(string commitRef, CancellationToken cancellationToken)
+	{
+		// Asked directly rather than through RunGitCommandAsync: a commit with no parent makes this fail,
+		// which is an answer, not an error to report
+		ProcessResult trees = await _runCommand(
+			"git",
+			["-C", _config.GitRepositoryPath, "rev-parse", $"{commitRef}^{{tree}}", $"{commitRef}^^{{tree}}"],
+			cancellationToken).ConfigureAwait(false);
+
+		string[] lines = trees.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+		return trees.ExitCode == 0 && lines.Length == 2 && lines[0].Trim() == lines[1].Trim();
 	}
 
 	private async Task<GitCommandResult> FinalizeRepositoryAsync(IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)
@@ -364,6 +407,10 @@ public class SvnToGitMigrator
 	private const string GitSvnRemotePrefix = "origin/";
 
 	private const string TagsPrefix = "tags/";
+
+	private const string TrunkRemoteRef = GitSvnRemotePrefix + "trunk";
+
+	private const string GitSvnRemoteRef = GitSvnRemotePrefix + "git-svn";
 
 	/// <summary>
 	/// Resolves the configured SVN repository to the URL that git-svn expects
