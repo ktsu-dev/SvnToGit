@@ -230,7 +230,8 @@ public class SvnToGitMigrator
 			string branchName = remoteBranch.StartsWith("origin/", StringComparison.OrdinalIgnoreCase)
 				? remoteBranch[7..]
 				: remoteBranch;
-			List<string> createBranchArgs = ["-C", _config.GitRepositoryPath, "checkout", "-b", branchName, remoteBranch];
+			// git branch creates the ref without checking it out, so HEAD stays on the trunk branch git-svn set up
+			List<string> createBranchArgs = ["-C", _config.GitRepositoryPath, "branch", branchName, remoteBranch];
 			GitCommandResult branchResult = await RunGitCommandAsync(createBranchArgs, progress, cancellationToken).ConfigureAwait(false);
 			if (!branchResult.Success)
 			{
