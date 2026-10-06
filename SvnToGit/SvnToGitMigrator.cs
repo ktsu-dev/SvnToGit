@@ -108,7 +108,8 @@ public class SvnToGitMigrator
 			// Phase 3: Clean up git-svn references
 			progress?.Report(new MigrationProgress("Cleanup", "Converting git-svn references to regular Git", 70, default, default));
 
-			GitCommandResult cleanupResult = await CleanupGitSvnReferencesAsync(progress, cancellationToken).ConfigureAwait(false);
+			List<string> warnings = [];
+			GitCommandResult cleanupResult = await CleanupGitSvnReferencesAsync(warnings, progress, cancellationToken).ConfigureAwait(false);
 			if (!cleanupResult.Success)
 			{
 				return Failed("Cleanup", cleanupResult.StandardError);
@@ -119,7 +120,6 @@ public class SvnToGitMigrator
 
 			// A failed git gc leaves a complete but unoptimized repository, so it is a warning rather than a failure
 			GitCommandResult finalizeResult = await FinalizeRepositoryAsync(progress, cancellationToken).ConfigureAwait(false);
-			List<string> warnings = [];
 			if (!finalizeResult.Success)
 			{
 				warnings.Add($"Finalization: git gc failed: {finalizeResult.StandardError}");
@@ -207,8 +207,21 @@ public class SvnToGitMigrator
 		return await RunGitCommandAsync(gitSvnArgs, progress, cancellationToken).ConfigureAwait(false);
 	}
 
-	private async Task<GitCommandResult> CleanupGitSvnReferencesAsync(IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)
+	private async Task<GitCommandResult> CleanupGitSvnReferencesAsync(List<string> warnings, IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)
 	{
+		// git-svn has already made a local branch from trunk, and a rerun or an SVN branch named after it
+		// would collide, so know which names are taken before creating any
+		List<string> localBranchesArgs = ["-C", _config.GitRepositoryPath, "for-each-ref", "--format=%(refname:short)", "refs/heads"];
+		GitCommandResult localBranchesResult = await RunGitCommandAsync(localBranchesArgs, progress, cancellationToken).ConfigureAwait(false);
+		if (!localBranchesResult.Success)
+		{
+			return localBranchesResult;
+		}
+
+		HashSet<string> takenBranchNames = [.. localBranchesResult.StandardOutput
+			.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+			.Select(line => line.Trim())];
+
 		// Convert remote branches to local branches
 		List<string> branchesArgs = ["-C", _config.GitRepositoryPath, "branch", "-r"];
 		GitCommandResult result = await RunGitCommandAsync(branchesArgs, progress, cancellationToken).ConfigureAwait(false);
@@ -231,9 +244,23 @@ public class SvnToGitMigrator
 		foreach (string remoteRef in remoteRefs)
 		{
 			string name = remoteRef[GitSvnRemotePrefix.Length..];
-			GitCommandResult refResult = name.StartsWith(TagsPrefix, StringComparison.Ordinal)
-				? await CreateTagAsync(name[TagsPrefix.Length..], remoteRef, progress, cancellationToken).ConfigureAwait(false)
-				: await CreateBranchAsync(name, remoteRef, progress, cancellationToken).ConfigureAwait(false);
+			GitCommandResult refResult;
+			if (name.StartsWith(TagsPrefix, StringComparison.Ordinal))
+			{
+				refResult = await CreateTagAsync(name[TagsPrefix.Length..], remoteRef, progress, cancellationToken).ConfigureAwait(false);
+			}
+			else
+			{
+				string branchName = UnusedBranchName(name, takenBranchNames);
+				if (branchName != name)
+				{
+					warnings.Add($"Cleanup: SVN branch {name} was migrated as {branchName}, because a branch named {name} already exists");
+				}
+
+				refResult = await CreateBranchAsync(branchName, remoteRef, progress, cancellationToken).ConfigureAwait(false);
+				takenBranchNames.Add(branchName);
+			}
+
 			if (!refResult.Success)
 			{
 				return refResult;
@@ -241,6 +268,25 @@ public class SvnToGitMigrator
 		}
 
 		return result;
+	}
+
+	/// <summary>
+	/// Returns <paramref name="name"/>, or when that is taken the first free <c>svn-</c>-prefixed variant of it
+	/// </summary>
+	internal static string UnusedBranchName(string name, ICollection<string> takenNames)
+	{
+		if (!takenNames.Contains(name))
+		{
+			return name;
+		}
+
+		string candidate = $"svn-{name}";
+		for (int suffix = 2; takenNames.Contains(candidate); suffix++)
+		{
+			candidate = $"svn-{name}-{suffix}";
+		}
+
+		return candidate;
 	}
 
 	private async Task<GitCommandResult> CreateBranchAsync(string branchName, string remoteRef, IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)

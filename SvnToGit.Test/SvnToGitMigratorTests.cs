@@ -262,6 +262,44 @@ public class SvnToGitMigratorTests
 	}
 
 	[TestMethod]
+	public async Task MigrateAsync_SvnBranchNamedLikeAnExistingLocalBranch_MigratesItUnderAnotherNameWithAWarning()
+	{
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			SvnMigrationConfig config = CreateConfig(directory);
+			await CreateGitSvnCloneAsync(config.GitRepositoryPath).ConfigureAwait(false);
+
+			// git-svn keeps the ref of an SVN branches/master even after it is deleted, alongside the master it made from trunk
+			string trunk = await GitAsync(config.GitRepositoryPath, "rev-parse", "master").ConfigureAwait(false);
+			string svnMaster = await CommitTreeAsync(config.GitRepositoryPath, trunk, "Create branch master").ConfigureAwait(false);
+			await GitAsync(config.GitRepositoryPath, "update-ref", "refs/remotes/origin/master", svnMaster).ConfigureAwait(false);
+			SvnToGitMigrator migrator = new(config, RealGitRunnerWithStubbedSvn());
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsTrue(result.Success, string.Join(Environment.NewLine, result.Errors));
+			Assert.AreEqual(trunk, await GitAsync(config.GitRepositoryPath, "rev-parse", "master").ConfigureAwait(false));
+			Assert.AreEqual(svnMaster, await GitAsync(config.GitRepositoryPath, "rev-parse", "svn-master").ConfigureAwait(false));
+			Assert.HasCount(1, result.Warnings);
+			Assert.Contains("svn-master", result.Warnings[0]);
+		}
+		finally
+		{
+			DeleteDirectory(directory);
+		}
+	}
+
+	[TestMethod]
+	public void UnusedBranchName_NameAndPrefixedNameTaken_AddsASuffix()
+	{
+		Assert.AreEqual("feature", SvnToGitMigrator.UnusedBranchName("feature", ["master"]));
+		Assert.AreEqual("svn-master", SvnToGitMigrator.UnusedBranchName("master", ["master"]));
+		Assert.AreEqual("svn-master-2", SvnToGitMigrator.UnusedBranchName("master", ["master", "svn-master"]));
+	}
+
+	[TestMethod]
 	public void BuildIgnoreRefsRegex_EscapesRegexCharactersAndSkipsBlankNames()
 	{
 		string? regex = SvnToGitMigrator.BuildIgnoreRefsRegex(["release+1", " ", ""], ["1.0 (old)"]);
