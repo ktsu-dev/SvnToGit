@@ -281,9 +281,11 @@ public class SvnToGitMigrator
 		}
 
 		string candidate = $"svn-{name}";
-		for (int suffix = 2; takenNames.Contains(candidate); suffix++)
+		int suffix = 2;
+		while (takenNames.Contains(candidate))
 		{
 			candidate = $"svn-{name}-{suffix}";
+			suffix++;
 		}
 
 		return candidate;
