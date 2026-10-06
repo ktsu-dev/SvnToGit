@@ -54,6 +54,10 @@ public class SvnToGitMigrator
 		{
 			errors.Add("Git repository path is required");
 		}
+		else if (File.Exists(_config.GitRepositoryPath))
+		{
+			errors.Add($"Git repository path is an existing file, not a directory: {_config.GitRepositoryPath}");
+		}
 
 		if (!string.IsNullOrWhiteSpace(_config.AuthorsFile) && !File.Exists(_config.AuthorsFile))
 		{
@@ -93,8 +97,16 @@ public class SvnToGitMigrator
 			// Phase 1: Initialization
 			progress?.Report(new MigrationProgress("Initialization", "Preparing migration environment", 10, default, default));
 
-			// Create output directory if it doesn't exist
-			Directory.CreateDirectory(_config.GitRepositoryPath);
+			// Create output directory if it doesn't exist. Validation cannot rule out every unusable path
+			// (a file further up the path, a location the user can't write to), so report those as a failed phase.
+			try
+			{
+				Directory.CreateDirectory(_config.GitRepositoryPath);
+			}
+			catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+			{
+				return Failed("Initialization", $"could not create {_config.GitRepositoryPath}: {ex.Message}");
+			}
 
 			// Phase 2: Clone SVN repository using git-svn
 			progress?.Report(new MigrationProgress("Cloning", "Cloning SVN repository with git-svn", 30, default, default));

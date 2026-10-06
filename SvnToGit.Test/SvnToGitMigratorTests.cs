@@ -107,6 +107,54 @@ public class SvnToGitMigratorTests
 	}
 
 	[TestMethod]
+	public void ValidateConfiguration_GitPathIsAnExistingFile_ReportsAnError()
+	{
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			string file = Path.Combine(directory, "existing.txt");
+			File.WriteAllText(file, string.Empty);
+			SvnToGitMigrator migrator = new(CreateConfig(directory) with { GitRepositoryPath = file }, StubRunner(failWhen: _ => false));
+
+			IReadOnlyList<string> errors = migrator.ValidateConfiguration();
+
+			Assert.HasCount(1, errors);
+			Assert.Contains("existing file", errors[0]);
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public async Task MigrateAsync_GitPathCannotBeCreated_ReturnsInitializationFailureWithoutCloning()
+	{
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			// A file part-way up the path passes validation but makes the directory impossible to create
+			string file = Path.Combine(directory, "existing.txt");
+			await File.WriteAllTextAsync(file, string.Empty, TestContext.CancellationToken).ConfigureAwait(false);
+			List<string> commands = [];
+			SvnToGitMigrator migrator = new(CreateConfig(directory) with { GitRepositoryPath = Path.Combine(file, "git") }, StubRunner(failWhen: _ => false, commands));
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsFalse(result.Success);
+			Assert.HasCount(1, result.Errors);
+			Assert.StartsWith("Initialization failed", result.Errors[0]);
+			Assert.IsFalse(commands.Any(command => command.Contains("svn clone", StringComparison.Ordinal)));
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[TestMethod]
 	public async Task MigrateAsync_AllCommandsSucceed_ReturnsSuccess()
 	{
 		string directory = CreateTempDirectory();
