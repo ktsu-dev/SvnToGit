@@ -1,8 +1,6 @@
-## v2.2.5 (patch)
+## v2.2.6-pre.1 (prerelease)
 
-Changes since v2.2.4:
+Changes since v2.2.5:
 
-- refactor: write the free branch-name search as a while loop [patch] ([@Claude](https://github.com/Claude))
-- fix: migrate an SVN branch that collides with a local branch under another name [patch] ([@Claude](https://github.com/Claude))
-- fix: return a failed result when the Git output path can't be created [patch] ([@Claude](https://github.com/Claude))
+- Bump MSTest.Sdk from 4.4.1 to 4.5.1 ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
