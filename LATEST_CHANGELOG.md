@@ -1,7 +1,8 @@
-## v2.2.5-pre.2 (prerelease)
+## v2.2.5 (patch)
 
-Changes since v2.2.5-pre.1:
+Changes since v2.2.4:
 
-- Bump Polyfill from 11.4.1 to 11.4.3 ([@dependabot[bot]](https://github.com/dependabot[bot]))
-- Bump the ktsu group with 2 updates ([@dependabot[bot]](https://github.com/dependabot[bot]))
+- refactor: write the free branch-name search as a while loop [patch] ([@Claude](https://github.com/Claude))
+- fix: migrate an SVN branch that collides with a local branch under another name [patch] ([@Claude](https://github.com/Claude))
+- fix: return a failed result when the Git output path can't be created [patch] ([@Claude](https://github.com/Claude))
 
