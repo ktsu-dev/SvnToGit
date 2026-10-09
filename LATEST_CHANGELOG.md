@@ -1,6 +1,6 @@
-## v2.2.6 (patch)
+## v2.2.7-pre.1 (prerelease)
 
-Changes since v2.2.5:
+Changes since v2.2.6:
 
-- Fail the migration when git svn clone imports no commits [patch] ([@Claude](https://github.com/Claude))
+- Bump the ktsu group with 1 update ([@dependabot[bot]](https://github.com/dependabot[bot]))
 
