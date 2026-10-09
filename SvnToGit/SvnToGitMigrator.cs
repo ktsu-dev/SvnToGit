@@ -117,6 +117,13 @@ public class SvnToGitMigrator
 				return Failed("Cloning", cloneResult.StandardError);
 			}
 
+			// git svn clone --stdlayout exits 0 having imported nothing when the URL has no top-level
+			// trunk/branches/tags, such as a flat repository or the trunk URL itself, so check for history
+			if (!await HasCommitsAsync(cancellationToken).ConfigureAwait(false))
+			{
+				return Failed("Cloning", NoCommitsImportedError);
+			}
+
 			// Phase 3: Clean up git-svn references
 			progress?.Report(new MigrationProgress("Cleanup", "Converting git-svn references to regular Git", 70, default, default));
 
@@ -152,6 +159,9 @@ public class SvnToGitMigrator
 			};
 		}
 	}
+
+	internal const string NoCommitsImportedError =
+		"No commits were imported. The repository may not use the standard trunk/branches/tags layout, or the URL points inside it (e.g. at trunk).";
 
 	private static MigrationResult Failed(string phase, string error) =>
 		new(false, null, null)
@@ -343,6 +353,21 @@ public class SvnToGitMigrator
 
 		string[] lines = trees.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries);
 		return trees.ExitCode == 0 && lines.Length == 2 && lines[0].Trim() == lines[1].Trim();
+	}
+
+	/// <summary>
+	/// Whether the cloned repository's HEAD resolves to a commit
+	/// </summary>
+	private async Task<bool> HasCommitsAsync(CancellationToken cancellationToken)
+	{
+		// Asked directly rather than through RunGitCommandAsync: an unborn HEAD makes this fail, which is
+		// an answer, not an error to report
+		ProcessResult head = await _runCommand(
+			"git",
+			["-C", _config.GitRepositoryPath, "rev-parse", "--verify", "-q", "HEAD"],
+			cancellationToken).ConfigureAwait(false);
+
+		return head.ExitCode == 0;
 	}
 
 	private async Task<GitCommandResult> FinalizeRepositoryAsync(IProgress<MigrationProgress>? progress, CancellationToken cancellationToken)

@@ -63,6 +63,32 @@ public class SvnToGitMigratorTests
 	}
 
 	[TestMethod]
+	public async Task MigrateAsync_CloneImportsNoCommits_ReturnsCloningFailureWithoutRunningLaterPhases()
+	{
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			List<string> commands = [];
+			List<MigrationProgress> reports = [];
+			SvnToGitMigrator migrator = new(CreateConfig(directory), StubRunner(failWhen: args => args.Contains("rev-parse") && args.Contains("HEAD"), commands));
+
+			MigrationResult result = await migrator.MigrateAsync(new SynchronousProgress(reports.Add), TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsFalse(result.Success);
+			Assert.IsNull(result.GitRepositoryPath);
+			Assert.HasCount(1, result.Errors);
+			Assert.AreEqual($"Cloning failed: {SvnToGitMigrator.NoCommitsImportedError}", result.Errors[0]);
+			Assert.IsFalse(commands.Any(c => c.Contains(" branch -r ", StringComparison.Ordinal) || c.Contains(" gc ", StringComparison.Ordinal)), string.Join(Environment.NewLine, commands));
+			Assert.IsFalse(reports.Any(r => r.Phase == "Complete"));
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[TestMethod]
 	public async Task MigrateAsync_BranchCreationFails_ReturnsFailureNamingTheBranch()
 	{
 		string directory = CreateTempDirectory();
