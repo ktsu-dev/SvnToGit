@@ -1,6 +1,8 @@
-## v2.2.6-pre.1 (prerelease)
+## v2.2.6 (patch)
 
-No significant changes detected since v2.2.6-pre.1.
+Changes since v2.2.5:
+
+- Fail the migration when git svn clone imports no commits [patch] ([@Claude](https://github.com/Claude))
 
 ## v2.2.6-pre.1 (prerelease)
 
