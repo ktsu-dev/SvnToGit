@@ -401,7 +401,8 @@ public static class SvnToGitCli
 			localPath = uri.LocalPath;
 		}
 
-		localPath = Path.TrimEndingDirectorySeparator(localPath);
+		// Resolve first, so "." and ".." name the directory they refer to rather than becoming ".-git" and "..-git"
+		localPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(localPath));
 		return Path.Combine(Path.GetDirectoryName(localPath) ?? ".", Path.GetFileName(localPath) + "-git");
 	}
 

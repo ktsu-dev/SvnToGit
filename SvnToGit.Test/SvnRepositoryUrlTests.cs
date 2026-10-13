@@ -85,4 +85,24 @@ public class SvnRepositoryUrlTests
 
 		Assert.AreEqual(Path.Combine(Path.GetTempPath(), "repos", "project-git"), SvnToGitCli.DefaultGitPath(repository));
 	}
+
+	[TestMethod]
+	[DataRow(".", DisplayName = "Current directory")]
+	[DataRow("./", DisplayName = "Current directory with a trailing separator")]
+	public void DefaultGitPath_CurrentDirectory_IsBesideTheCurrentDirectory(string svnPath)
+	{
+		string current = Path.TrimEndingDirectorySeparator(Directory.GetCurrentDirectory());
+		string expected = Path.Combine(Path.GetDirectoryName(current)!, Path.GetFileName(current) + "-git");
+
+		Assert.AreEqual(expected, SvnToGitCli.DefaultGitPath(svnPath));
+	}
+
+	[TestMethod]
+	public void DefaultGitPath_ParentDirectory_IsBesideTheParentDirectory()
+	{
+		string parent = Path.TrimEndingDirectorySeparator(Path.GetFullPath(".."));
+		string expected = Path.Combine(Path.GetDirectoryName(parent)!, Path.GetFileName(parent) + "-git");
+
+		Assert.AreEqual(expected, SvnToGitCli.DefaultGitPath(".."));
+	}
 }
