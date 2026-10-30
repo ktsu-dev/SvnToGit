@@ -5,6 +5,7 @@ namespace ktsu.SvnToGit.Test;
 using ktsu.SvnToGit.Cli;
 using ktsu.SvnToGit.Core;
 using Spectre.Console;
+using Spectre.Console.Testing;
 
 /// <summary>
 /// Tests that the CLI shows paths, URLs and git output containing square brackets verbatim, rather than
@@ -213,6 +214,24 @@ public class SvnToGitCliMarkupTests
 		string output = writer.ToString();
 		Assert.Contains($"• Authors file does not exist: {BracketedPath}", output);
 		Assert.Contains("• /srv/svn/a[b", output);
+	}
+
+	[TestMethod]
+	[DataRow("/srv/svn/repo [old]")]
+	[DataRow("/srv/svn/proj[1]")]
+	[DataRow("https://svn.example.com/repos/proj[2]")]
+	[DataRow("http://[::1]/")]
+	public void GitPathPrompt_BracketedDefault_ShowsItAndReturnsItUnescapedOnEnter(string svnPath)
+	{
+		string defaultGitPath = SvnToGitCli.DefaultGitPath(svnPath);
+		using TestConsole console = new();
+		console.Profile.Width = 500;
+		console.Input.PushKey(ConsoleKey.Enter);
+
+		string gitPath = console.Prompt(SvnToGitCli.GitPathPrompt(defaultGitPath));
+
+		Assert.AreEqual(defaultGitPath, gitPath);
+		Assert.Contains($"Enter Git repository path: ({defaultGitPath})", console.Output);
 	}
 
 	/// <summary>

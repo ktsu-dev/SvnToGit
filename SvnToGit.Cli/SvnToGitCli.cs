@@ -320,7 +320,7 @@ public static class SvnToGitCli
 
 			string defaultGitPath = DefaultGitPath(svnPath);
 
-			string gitPath = AnsiConsole.Ask("[blue]Enter Git repository path:[/]", defaultGitPath);
+			string gitPath = AnsiConsole.Prompt(GitPathPrompt(defaultGitPath));
 
 			bool useAuthorsFile = AnsiConsole.Confirm("Do you want to use an authors file for user mapping?");
 			string? authorsFile = null;
@@ -379,6 +379,17 @@ public static class SvnToGitCli
 			return null;
 		}
 	}
+
+	/// <summary>
+	/// Builds the prompt for the Git repository path, offering <paramref name="defaultGitPath"/> as the default
+	/// </summary>
+	/// <param name="defaultGitPath">The proposed path, shown verbatim and returned unescaped when the user presses Enter</param>
+	/// <returns>The prompt</returns>
+	internal static TextPrompt<string> GitPathPrompt(string defaultGitPath) =>
+		// Spectre renders a default value as markup, and the proposed path comes from what the user typed
+		new TextPrompt<string>("[blue]Enter Git repository path:[/]")
+			.DefaultValue(defaultGitPath)
+			.WithConverter(Markup.Escape);
 
 	/// <summary>
 	/// Proposes a Git repository path named after the last segment of the SVN URL or path, with a
