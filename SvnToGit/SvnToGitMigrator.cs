@@ -253,14 +253,14 @@ public class SvnToGitMigrator
 			return result;
 		}
 
-		// Parse remote refs. Trunk is already the checked-out branch, and git-svn is the single-ref
-		// remote a non-stdlayout clone makes; both are matched exactly, so a branch whose name merely
-		// contains "trunk" or "git-svn" is still migrated.
+		// Parse remote refs. Trunk is already the checked-out branch, and is matched exactly, so a branch
+		// whose name merely contains "trunk" is still migrated. The clone is always --stdlayout, so an
+		// origin/git-svn ref here is a real SVN branch named git-svn, and is migrated like any other.
 		List<string> remoteRefs = [.. result.StandardOutput
 			.Split('\n', StringSplitOptions.RemoveEmptyEntries)
 			.Select(line => line.Trim())
 			.Where(line => line.StartsWith(GitSvnRemotePrefix, StringComparison.Ordinal))
-			.Where(line => line is not TrunkRemoteRef and not GitSvnRemoteRef)
+			.Where(line => line is not TrunkRemoteRef)
 			.Where(line => !IsExcludedRemoteRef(line))];
 
 		foreach (string remoteRef in remoteRefs)
@@ -494,8 +494,6 @@ public class SvnToGitMigrator
 	private const string TagsPrefix = "tags/";
 
 	private const string TrunkRemoteRef = GitSvnRemotePrefix + "trunk";
-
-	private const string GitSvnRemoteRef = GitSvnRemotePrefix + "git-svn";
 
 	/// <summary>
 	/// Resolves the configured SVN repository to the URL that git-svn expects
