@@ -5,6 +5,7 @@ namespace ktsu.SvnToGit.Test;
 using ktsu.SvnToGit.Cli;
 using ktsu.SvnToGit.Core;
 using Spectre.Console;
+using Spectre.Console.Rendering;
 using Spectre.Console.Testing;
 
 /// <summary>
@@ -269,6 +270,43 @@ public class SvnToGitCliMarkupTests
 		Assert.Contains("Invalid operation during configuration input.", console.Output);
 	}
 
+	[TestMethod]
+	public void CollectMigrationConfiguration_AuthorsFileRequested_UsesTheGivenPath()
+	{
+		using TestConsole console = new();
+		console.Profile.Width = 500;
+		console.Interactive();
+		console.Input.PushTextWithEnter(BracketedPath);
+		console.Input.PushKey(ConsoleKey.Enter); // accept the proposed Git path
+		console.Input.PushTextWithEnter("y"); // use an authors file
+		console.Input.PushTextWithEnter("/srv/authors [2024].txt");
+		console.Input.PushKey(ConsoleKey.Enter); // preserve empty directories
+		console.Input.PushKey(ConsoleKey.Enter); // no advanced options
+
+		SvnMigrationConfig? config = SvnToGitCli.CollectMigrationConfiguration(console);
+
+		Assert.IsNotNull(config, console.Output);
+		Assert.AreEqual("/srv/authors [2024].txt", config.AuthorsFile);
+	}
+
+	[TestMethod]
+	public void CollectMigrationConfiguration_InputCancelled_ReportsItAndReturnsNull()
+	{
+		using TestConsole console = new();
+
+		Assert.IsNull(SvnToGitCli.CollectMigrationConfiguration(new ThrowingInputConsole(console, new OperationCanceledException())));
+		Assert.Contains("Configuration input cancelled.", console.Output);
+	}
+
+	[TestMethod]
+	public void CollectMigrationConfiguration_InvalidArgument_ReportsItAndReturnsNull()
+	{
+		using TestConsole console = new();
+
+		Assert.IsNull(SvnToGitCli.CollectMigrationConfiguration(new ThrowingInputConsole(console, new ArgumentException("bad input"))));
+		Assert.Contains("Invalid argument provided during configuration.", console.Output);
+	}
+
 	/// <summary>
 	/// Renders markup to plain text the way the CLI would show it, throwing as the CLI would on bad markup.
 	/// </summary>
@@ -296,5 +334,25 @@ public class SvnToGitCliMarkupTests
 		});
 		console.Profile.Width = 500;
 		return (console, writer);
+	}
+
+	/// <summary>
+	/// Writes to <paramref name="inner"/>, but throws <paramref name="exception"/> as soon as a prompt reads a key.
+	/// </summary>
+	private sealed class ThrowingInputConsole(IAnsiConsole inner, Exception exception) : IAnsiConsole, IAnsiConsoleInput
+	{
+		public Profile Profile => inner.Profile;
+		public IAnsiConsoleCursor Cursor => inner.Cursor;
+		public IAnsiConsoleInput Input => this;
+		public IExclusivityMode ExclusivityMode => inner.ExclusivityMode;
+		public RenderPipeline Pipeline => inner.Pipeline;
+
+		public void Clear(bool home) => inner.Clear(home);
+		public void Write(IRenderable renderable) => inner.Write(renderable);
+		public void WriteAnsi(Action<AnsiWriter> action) => inner.WriteAnsi(action);
+
+		public bool IsKeyAvailable() => true;
+		public ConsoleKeyInfo? ReadKey(bool intercept) => throw exception;
+		public Task<ConsoleKeyInfo?> ReadKeyAsync(bool intercept, CancellationToken cancellationToken) => throw exception;
 	}
 }
