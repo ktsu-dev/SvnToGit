@@ -5,6 +5,8 @@ namespace ktsu.SvnToGit.Test;
 using ktsu.SvnToGit.Cli;
 using ktsu.SvnToGit.Core;
 using Spectre.Console;
+using Spectre.Console.Rendering;
+using Spectre.Console.Testing;
 
 /// <summary>
 /// Tests that the CLI shows paths, URLs and git output containing square brackets verbatim, rather than
@@ -15,6 +17,7 @@ public class SvnToGitCliMarkupTests
 {
 	private const string BracketedPath = "/srv/svn/repo [old]";
 	private const string Ipv6Url = "http://[::1]/svn/repo";
+	private static readonly string[] ExpectedExcludedTags = ["old", "v0.1"];
 	private const string GitSvnError = "Cloning failed: fatal: bad config line 1 in [svn-remote \"svn\"]";
 
 	[TestMethod]
@@ -215,6 +218,95 @@ public class SvnToGitCliMarkupTests
 		Assert.Contains("• /srv/svn/a[b", output);
 	}
 
+	[TestMethod]
+	[DataRow("/srv/svn/repo [old]")]
+	[DataRow("/srv/svn/proj[1]")]
+	[DataRow("https://svn.example.com/repos/proj[2]")]
+	[DataRow("http://[::1]/")]
+	public void GitPathPrompt_BracketedDefault_ShowsItAndReturnsItUnescapedOnEnter(string svnPath)
+	{
+		string defaultGitPath = SvnToGitCli.DefaultGitPath(svnPath);
+		using TestConsole console = new();
+		console.Profile.Width = 500;
+		console.Input.PushKey(ConsoleKey.Enter);
+
+		string gitPath = console.Prompt(SvnToGitCli.GitPathPrompt(defaultGitPath));
+
+		Assert.AreEqual(defaultGitPath, gitPath);
+		Assert.Contains($"Enter Git repository path: ({defaultGitPath})", console.Output);
+	}
+
+	[TestMethod]
+	public void CollectMigrationConfiguration_BracketedSvnPath_OffersTheProposedGitPathInsteadOfCancelling()
+	{
+		using TestConsole console = new();
+		console.Profile.Width = 500;
+		console.Interactive();
+		console.Input.PushTextWithEnter(BracketedPath);
+		console.Input.PushKey(ConsoleKey.Enter); // accept the proposed Git path
+		console.Input.PushTextWithEnter("n"); // no authors file
+		console.Input.PushKey(ConsoleKey.Enter); // preserve empty directories
+		console.Input.PushTextWithEnter("y"); // configure advanced options
+		console.Input.PushTextWithEnter("old, v0.1");
+		console.Input.PushKey(ConsoleKey.Enter); // exclude no branches
+
+		SvnMigrationConfig? config = SvnToGitCli.CollectMigrationConfiguration(console);
+
+		Assert.IsNotNull(config, console.Output);
+		Assert.AreEqual(BracketedPath, config.SvnRepositoryPath);
+		Assert.AreEqual(SvnToGitCli.DefaultGitPath(BracketedPath), config.GitRepositoryPath);
+		CollectionAssert.AreEqual(ExpectedExcludedTags, config.ExcludeTags.ToArray());
+		Assert.IsEmpty(config.ExcludeBranches);
+	}
+
+	[TestMethod]
+	public void CollectMigrationConfiguration_InputEndsEarly_ReportsItAndReturnsNull()
+	{
+		using TestConsole console = new();
+		console.Interactive();
+		console.Input.PushTextWithEnter(BracketedPath);
+
+		Assert.IsNull(SvnToGitCli.CollectMigrationConfiguration(console));
+		Assert.Contains("Invalid operation during configuration input.", console.Output);
+	}
+
+	[TestMethod]
+	public void CollectMigrationConfiguration_AuthorsFileRequested_UsesTheGivenPath()
+	{
+		using TestConsole console = new();
+		console.Profile.Width = 500;
+		console.Interactive();
+		console.Input.PushTextWithEnter(BracketedPath);
+		console.Input.PushKey(ConsoleKey.Enter); // accept the proposed Git path
+		console.Input.PushTextWithEnter("y"); // use an authors file
+		console.Input.PushTextWithEnter("/srv/authors [2024].txt");
+		console.Input.PushKey(ConsoleKey.Enter); // preserve empty directories
+		console.Input.PushKey(ConsoleKey.Enter); // no advanced options
+
+		SvnMigrationConfig? config = SvnToGitCli.CollectMigrationConfiguration(console);
+
+		Assert.IsNotNull(config, console.Output);
+		Assert.AreEqual("/srv/authors [2024].txt", config.AuthorsFile);
+	}
+
+	[TestMethod]
+	public void CollectMigrationConfiguration_InputCancelled_ReportsItAndReturnsNull()
+	{
+		using TestConsole console = new();
+
+		Assert.IsNull(SvnToGitCli.CollectMigrationConfiguration(new ThrowingInputConsole(console, new OperationCanceledException())));
+		Assert.Contains("Configuration input cancelled.", console.Output);
+	}
+
+	[TestMethod]
+	public void CollectMigrationConfiguration_InvalidArgument_ReportsItAndReturnsNull()
+	{
+		using TestConsole console = new();
+
+		Assert.IsNull(SvnToGitCli.CollectMigrationConfiguration(new ThrowingInputConsole(console, new ArgumentException("bad input"))));
+		Assert.Contains("Invalid argument provided during configuration.", console.Output);
+	}
+
 	/// <summary>
 	/// Renders markup to plain text the way the CLI would show it, throwing as the CLI would on bad markup.
 	/// </summary>
@@ -242,5 +334,25 @@ public class SvnToGitCliMarkupTests
 		});
 		console.Profile.Width = 500;
 		return (console, writer);
+	}
+
+	/// <summary>
+	/// Writes to <paramref name="inner"/>, but throws <paramref name="exception"/> as soon as a prompt reads a key.
+	/// </summary>
+	private sealed class ThrowingInputConsole(IAnsiConsole inner, Exception exception) : IAnsiConsole, IAnsiConsoleInput
+	{
+		public Profile Profile => inner.Profile;
+		public IAnsiConsoleCursor Cursor => inner.Cursor;
+		public IAnsiConsoleInput Input => this;
+		public IExclusivityMode ExclusivityMode => inner.ExclusivityMode;
+		public RenderPipeline Pipeline => inner.Pipeline;
+
+		public void Clear(bool home) => inner.Clear(home);
+		public void Write(IRenderable renderable) => inner.Write(renderable);
+		public void WriteAnsi(Action<AnsiWriter> action) => inner.WriteAnsi(action);
+
+		public bool IsKeyAvailable() => true;
+		public ConsoleKeyInfo? ReadKey(bool intercept) => throw exception;
+		public Task<ConsoleKeyInfo?> ReadKeyAsync(bool intercept, CancellationToken cancellationToken) => throw exception;
 	}
 }
