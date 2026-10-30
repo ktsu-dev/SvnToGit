@@ -16,6 +16,7 @@ public class SvnToGitCliMarkupTests
 {
 	private const string BracketedPath = "/srv/svn/repo [old]";
 	private const string Ipv6Url = "http://[::1]/svn/repo";
+	private static readonly string[] ExpectedExcludedTags = ["old", "v0.1"];
 	private const string GitSvnError = "Cloning failed: fatal: bad config line 1 in [svn-remote \"svn\"]";
 
 	[TestMethod]
@@ -232,6 +233,40 @@ public class SvnToGitCliMarkupTests
 
 		Assert.AreEqual(defaultGitPath, gitPath);
 		Assert.Contains($"Enter Git repository path: ({defaultGitPath})", console.Output);
+	}
+
+	[TestMethod]
+	public void CollectMigrationConfiguration_BracketedSvnPath_OffersTheProposedGitPathInsteadOfCancelling()
+	{
+		using TestConsole console = new();
+		console.Profile.Width = 500;
+		console.Interactive();
+		console.Input.PushTextWithEnter(BracketedPath);
+		console.Input.PushKey(ConsoleKey.Enter); // accept the proposed Git path
+		console.Input.PushTextWithEnter("n"); // no authors file
+		console.Input.PushKey(ConsoleKey.Enter); // preserve empty directories
+		console.Input.PushTextWithEnter("y"); // configure advanced options
+		console.Input.PushTextWithEnter("old, v0.1");
+		console.Input.PushKey(ConsoleKey.Enter); // exclude no branches
+
+		SvnMigrationConfig? config = SvnToGitCli.CollectMigrationConfiguration(console);
+
+		Assert.IsNotNull(config, console.Output);
+		Assert.AreEqual(BracketedPath, config.SvnRepositoryPath);
+		Assert.AreEqual(SvnToGitCli.DefaultGitPath(BracketedPath), config.GitRepositoryPath);
+		CollectionAssert.AreEqual(ExpectedExcludedTags, config.ExcludeTags.ToArray());
+		Assert.IsEmpty(config.ExcludeBranches);
+	}
+
+	[TestMethod]
+	public void CollectMigrationConfiguration_InputEndsEarly_ReportsItAndReturnsNull()
+	{
+		using TestConsole console = new();
+		console.Interactive();
+		console.Input.PushTextWithEnter(BracketedPath);
+
+		Assert.IsNull(SvnToGitCli.CollectMigrationConfiguration(console));
+		Assert.Contains("Invalid operation during configuration input.", console.Output);
 	}
 
 	/// <summary>
