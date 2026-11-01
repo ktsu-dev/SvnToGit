@@ -51,6 +51,48 @@ public class SvnToGitIntegrationTests
 		}
 	}
 
+	[TestMethod]
+	[DoNotParallelize] // Points GIT_CONFIG_GLOBAL, which every git child process inherits, at a temp file
+	public async Task MigrateAsync_TagGpgSignInGlobalConfig_CreatesLightweightTags()
+	{
+		await AssertSvnToolsAvailableAsync().ConfigureAwait(false);
+
+		string directory = CreateTempDirectory();
+		string? originalGlobalConfig = Environment.GetEnvironmentVariable("GIT_CONFIG_GLOBAL");
+
+		try
+		{
+			string svnRepository = Path.Combine(directory, "svn");
+			await CreateSvnRepositoryAsync(directory, svnRepository).ConfigureAwait(false);
+			string url = new Uri(Path.GetFullPath(svnRepository)).AbsoluteUri;
+			await RunAsync("svn", "copy", "--quiet", "-m", "Tag v1", $"{url}/trunk", $"{url}/tags/v1").ConfigureAwait(false);
+
+			// tag.gpgSign makes a plain `git tag` annotated and signed. A non-interactive editor makes git
+			// fail with "no tag message?" instead of waiting on a terminal, as it does for the CLI's users.
+			string globalConfig = Path.Combine(directory, "gitconfig");
+			await File.WriteAllTextAsync(globalConfig, "[user]\n\tname = Test\n\temail = test@example.com\n[tag]\n\tgpgSign = true\n[core]\n\teditor = true\n", TestContext.CancellationToken).ConfigureAwait(false);
+			Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", globalConfig);
+
+			string gitRepository = Path.Combine(directory, "git");
+			SvnToGitMigrator migrator = new(new SvnMigrationConfig
+			{
+				SvnRepositoryPath = svnRepository,
+				GitRepositoryPath = gitRepository,
+			});
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsTrue(result.Success, string.Join(Environment.NewLine, result.Errors));
+			string tagType = await RunAsync("git", "-C", gitRepository, "cat-file", "-t", "v1").ConfigureAwait(false);
+			Assert.AreEqual("commit", tagType.Trim(), "v1 should be a lightweight tag naming a commit, not a tag object");
+		}
+		finally
+		{
+			Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", originalGlobalConfig);
+			DeleteDirectory(directory);
+		}
+	}
+
 	/// <summary>
 	/// Creates an SVN repository at <paramref name="svnRepository"/> with the standard layout, a
 	/// <c>readme.txt</c> committed to trunk, and a <c>feature</c> branch copied from trunk.

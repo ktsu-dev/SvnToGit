@@ -331,7 +331,8 @@ public class SvnToGitMigrator
 			? $"{remoteRef}^"
 			: remoteRef;
 
-		List<string> createTagArgs = ["-C", _config.GitRepositoryPath, "tag", tagName, target];
+		// Override tag.gpgSign, which turns a plain `git tag` into a signed annotated tag that needs a message
+		List<string> createTagArgs = ["-c", "tag.gpgSign=false", "-C", _config.GitRepositoryPath, "tag", tagName, target];
 		GitCommandResult tagResult = await RunGitCommandAsync(createTagArgs, progress, cancellationToken).ConfigureAwait(false);
 		return tagResult.Success
 			? tagResult
