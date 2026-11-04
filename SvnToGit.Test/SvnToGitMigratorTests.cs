@@ -79,7 +79,7 @@ public class SvnToGitMigratorTests
 			Assert.IsNull(result.GitRepositoryPath);
 			Assert.HasCount(1, result.Errors);
 			Assert.AreEqual($"Cloning failed: {SvnToGitMigrator.NoCommitsImportedError}", result.Errors[0]);
-			Assert.IsFalse(commands.Any(c => c.Contains(" branch -r ", StringComparison.Ordinal) || c.Contains(" gc ", StringComparison.Ordinal)), string.Join(Environment.NewLine, commands));
+			Assert.IsFalse(commands.Any(c => c.Contains(" refs/remotes/origin/ ", StringComparison.Ordinal) || c.Contains(" gc ", StringComparison.Ordinal)), string.Join(Environment.NewLine, commands));
 			Assert.IsFalse(reports.Any(r => r.Phase == "Complete"));
 		}
 		finally
@@ -266,7 +266,7 @@ public class SvnToGitMigratorTests
 			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
 
 			Assert.IsTrue(result.Success);
-			string[] created = [.. commands.Where(c => (c.Contains(" branch ", StringComparison.Ordinal) && !c.Contains(" branch -r ", StringComparison.Ordinal)) || c.Contains(" tag ", StringComparison.Ordinal))];
+			string[] created = [.. commands.Where(c => c.Contains(" branch ", StringComparison.Ordinal) || c.Contains(" tag ", StringComparison.Ordinal))];
 			string log = string.Join(Environment.NewLine, commands);
 			Assert.HasCount(2, created, log);
 			Assert.IsTrue(created.Any(c => c.Contains(" branch feature origin/feature ", StringComparison.Ordinal)), log);
@@ -275,6 +275,34 @@ public class SvnToGitMigratorTests
 		finally
 		{
 			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	[DataRow("color.ui")]
+	[DataRow("column.ui")]
+	public async Task MigrateAsync_UserForcesBranchListingFormatting_StillCreatesEveryBranchAndTag(string setting)
+	{
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			SvnMigrationConfig config = CreateConfig(directory);
+			await CreateGitSvnCloneAsync(config.GitRepositoryPath).ConfigureAwait(false);
+			await GitAsync(config.GitRepositoryPath, "config", setting, "always").ConfigureAwait(false);
+			SvnToGitMigrator migrator = new(config, RealGitRunnerWithStubbedSvn());
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsTrue(result.Success, string.Join(Environment.NewLine, result.Errors));
+			string localBranches = await GitAsync(config.GitRepositoryPath, "for-each-ref", "--format=%(refname:short)", "refs/heads").ConfigureAwait(false);
+			CollectionAssert.AreEquivalent(ExpectedLocalBranches, localBranches.Split('\n'));
+			string tags = await GitAsync(config.GitRepositoryPath, "for-each-ref", "--format=%(refname:short)", "refs/tags").ConfigureAwait(false);
+			CollectionAssert.AreEquivalent(ExpectedTags, tags.Split('\n'));
+		}
+		finally
+		{
+			DeleteDirectory(directory);
 		}
 	}
 
@@ -409,7 +437,7 @@ public class SvnToGitMigratorTests
 				return Task.FromResult(new ProcessResult(128, string.Empty, "authentication failed"));
 			}
 
-			string output = args.Contains("branch") && args.Contains("-r") ? remoteBranches : string.Empty;
+			string output = args.Contains("for-each-ref") && args.Contains("refs/remotes/origin/") ? remoteBranches : string.Empty;
 			return Task.FromResult(new ProcessResult(0, output, string.Empty));
 		};
 
