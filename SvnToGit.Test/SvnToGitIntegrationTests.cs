@@ -12,6 +12,8 @@ using ktsu.SvnToGit.Core;
 [TestClass]
 public class SvnToGitIntegrationTests
 {
+	private static readonly string[] ExpectedBranchesWithGitSvn = ["master", "feature", "git-svn"];
+
 	public TestContext TestContext { get; set; } = null!;
 
 	[TestMethod]
@@ -44,6 +46,40 @@ public class SvnToGitIntegrationTests
 
 			string branches = await RunAsync("git", "-C", gitRepository, "branch", "--list", "feature").ConfigureAwait(false);
 			Assert.Contains("feature", branches);
+		}
+		finally
+		{
+			DeleteDirectory(directory);
+		}
+	}
+
+	[TestMethod]
+	public async Task MigrateAsync_SvnBranchNamedGitSvn_BecomesALocalBranch()
+	{
+		await AssertSvnToolsAvailableAsync().ConfigureAwait(false);
+
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			string svnRepository = Path.Combine(directory, "svn");
+			await CreateSvnRepositoryAsync(directory, svnRepository).ConfigureAwait(false);
+			string url = new Uri(Path.GetFullPath(svnRepository)).AbsoluteUri;
+			await RunAsync("svn", "copy", "--quiet", "-m", "Create the git-svn branch", $"{url}/trunk", $"{url}/branches/git-svn").ConfigureAwait(false);
+
+			string gitRepository = Path.Combine(directory, "git");
+			SvnToGitMigrator migrator = new(new SvnMigrationConfig
+			{
+				SvnRepositoryPath = svnRepository,
+				GitRepositoryPath = gitRepository,
+			});
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsTrue(result.Success, string.Join(Environment.NewLine, result.Errors));
+			Assert.IsEmpty(result.Warnings, string.Join(Environment.NewLine, result.Warnings));
+			string branches = await RunAsync("git", "-C", gitRepository, "for-each-ref", "--format=%(refname:short)", "refs/heads").ConfigureAwait(false);
+			CollectionAssert.AreEquivalent(ExpectedBranchesWithGitSvn, branches.Split('\n', StringSplitOptions.RemoveEmptyEntries));
 		}
 		finally
 		{
