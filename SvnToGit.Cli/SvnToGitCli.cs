@@ -101,7 +101,7 @@ public static class SvnToGitCli
 		AnsiConsole.Write(new Rule("[green]SVN to Git Migration[/]").RuleStyle("green").LeftJustified());
 
 		// Collect migration configuration
-		SvnMigrationConfig? config = CollectMigrationConfiguration();
+		SvnMigrationConfig? config = CollectMigrationConfiguration(AnsiConsole.Console);
 
 		if (config == null)
 		{
@@ -135,7 +135,7 @@ public static class SvnToGitCli
 	{
 		AnsiConsole.Write(new Rule("[yellow]Configuration Validation[/]").RuleStyle("yellow").LeftJustified());
 
-		SvnMigrationConfig? config = CollectMigrationConfiguration();
+		SvnMigrationConfig? config = CollectMigrationConfiguration(AnsiConsole.Console);
 
 		if (config == null)
 		{
@@ -312,40 +312,45 @@ public static class SvnToGitCli
 		}
 	}
 
-	private static SvnMigrationConfig? CollectMigrationConfiguration()
+	/// <summary>
+	/// Asks for the migration settings
+	/// </summary>
+	/// <param name="console">The console to prompt on</param>
+	/// <returns>The settings, or <see langword="null"/> when input was cancelled or invalid</returns>
+	internal static SvnMigrationConfig? CollectMigrationConfiguration(IAnsiConsole console)
 	{
 		try
 		{
-			string svnPath = AnsiConsole.Ask<string>("[blue]Enter SVN repository URL or local path:[/]");
+			string svnPath = console.Ask<string>("[blue]Enter SVN repository URL or local path:[/]");
 
 			string defaultGitPath = DefaultGitPath(svnPath);
 
-			string gitPath = AnsiConsole.Ask("[blue]Enter Git repository path:[/]", defaultGitPath);
+			string gitPath = console.Prompt(GitPathPrompt(defaultGitPath));
 
-			bool useAuthorsFile = AnsiConsole.Confirm("Do you want to use an authors file for user mapping?");
+			bool useAuthorsFile = console.Confirm("Do you want to use an authors file for user mapping?");
 			string? authorsFile = null;
 			if (useAuthorsFile)
 			{
-				authorsFile = AnsiConsole.Ask<string>("[blue]Enter authors file path:[/]");
+				authorsFile = console.Ask<string>("[blue]Enter authors file path:[/]");
 			}
 
-			bool preserveEmptyDirs = AnsiConsole.Confirm("Preserve empty directories?", true);
+			bool preserveEmptyDirs = console.Confirm("Preserve empty directories?", true);
 
 			// Advanced options
-			bool showAdvanced = AnsiConsole.Confirm("Configure advanced options?", false);
+			bool showAdvanced = console.Confirm("Configure advanced options?", false);
 			Collection<string> excludeTags = [];
 			Collection<string> excludeBranches = [];
 
 			if (showAdvanced)
 			{
-				string excludeTagsInput = AnsiConsole.Ask("[blue]Tags to exclude (comma-separated, or press Enter for none):[/]", string.Empty);
+				string excludeTagsInput = console.Prompt(new TextPrompt<string>("[blue]Tags to exclude (comma-separated, or press Enter for none):[/]").DefaultValue(string.Empty));
 				if (!string.IsNullOrWhiteSpace(excludeTagsInput))
 				{
 					excludeTags = excludeTagsInput.Split(',', StringSplitOptions.RemoveEmptyEntries)
 						.Select(t => t.Trim()).ToCollection();
 				}
 
-				string excludeBranchesInput = AnsiConsole.Ask("[blue]Branches to exclude (comma-separated, or press Enter for none):[/]", string.Empty);
+				string excludeBranchesInput = console.Prompt(new TextPrompt<string>("[blue]Branches to exclude (comma-separated, or press Enter for none):[/]").DefaultValue(string.Empty));
 				if (!string.IsNullOrWhiteSpace(excludeBranchesInput))
 				{
 					excludeBranches = excludeBranchesInput.Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -365,20 +370,31 @@ public static class SvnToGitCli
 		}
 		catch (OperationCanceledException)
 		{
-			AnsiConsole.MarkupLine("[red]Configuration input cancelled.[/]");
+			console.MarkupLine("[red]Configuration input cancelled.[/]");
 			return null;
 		}
 		catch (InvalidOperationException)
 		{
-			AnsiConsole.MarkupLine("[red]Invalid operation during configuration input.[/]");
+			console.MarkupLine("[red]Invalid operation during configuration input.[/]");
 			return null;
 		}
 		catch (ArgumentException)
 		{
-			AnsiConsole.MarkupLine("[red]Invalid argument provided during configuration.[/]");
+			console.MarkupLine("[red]Invalid argument provided during configuration.[/]");
 			return null;
 		}
 	}
+
+	/// <summary>
+	/// Builds the prompt for the Git repository path, offering <paramref name="defaultGitPath"/> as the default
+	/// </summary>
+	/// <param name="defaultGitPath">The proposed path, shown verbatim and returned unescaped when the user presses Enter</param>
+	/// <returns>The prompt</returns>
+	internal static TextPrompt<string> GitPathPrompt(string defaultGitPath) =>
+		// Spectre renders a default value as markup, and the proposed path comes from what the user typed
+		new TextPrompt<string>("[blue]Enter Git repository path:[/]")
+			.DefaultValue(defaultGitPath)
+			.WithConverter(Markup.Escape);
 
 	/// <summary>
 	/// Proposes a Git repository path named after the last segment of the SVN URL or path, with a
