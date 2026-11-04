@@ -244,8 +244,9 @@ public class SvnToGitMigrator
 			.Split('\n', StringSplitOptions.RemoveEmptyEntries)
 			.Select(line => line.Trim())];
 
-		// Convert remote branches to local branches
-		List<string> branchesArgs = ["-C", _config.GitRepositoryPath, "branch", "-r"];
+		// Convert remote branches to local branches. List them with plumbing, because git branch -r follows
+		// the user's color.ui and column.ui settings even when its output is not a terminal.
+		List<string> branchesArgs = ["-C", _config.GitRepositoryPath, "for-each-ref", "--format=%(refname:lstrip=2)", RemoteRefsNamespace];
 		GitCommandResult result = await RunGitCommandAsync(branchesArgs, progress, cancellationToken).ConfigureAwait(false);
 
 		if (!result.Success)
@@ -253,14 +254,14 @@ public class SvnToGitMigrator
 			return result;
 		}
 
-		// Parse remote refs. Trunk is already the checked-out branch, and git-svn is the single-ref
-		// remote a non-stdlayout clone makes; both are matched exactly, so a branch whose name merely
-		// contains "trunk" or "git-svn" is still migrated.
+		// Parse remote refs. Trunk is already the checked-out branch, and is matched exactly, so a branch
+		// whose name merely contains "trunk" is still migrated. The clone is always --stdlayout, so an
+		// origin/git-svn ref here is a real SVN branch named git-svn, and is migrated like any other.
 		List<string> remoteRefs = [.. result.StandardOutput
 			.Split('\n', StringSplitOptions.RemoveEmptyEntries)
 			.Select(line => line.Trim())
 			.Where(line => line.StartsWith(GitSvnRemotePrefix, StringComparison.Ordinal))
-			.Where(line => line is not TrunkRemoteRef and not GitSvnRemoteRef)
+			.Where(line => line is not TrunkRemoteRef)
 			.Where(line => !IsExcludedRemoteRef(line))];
 
 		foreach (string remoteRef in remoteRefs)
@@ -473,7 +474,7 @@ public class SvnToGitMigrator
 	}
 
 	/// <summary>
-	/// Whether a remote ref listed by <c>git branch -r</c>, such as <c>origin/experimental</c> or
+	/// Whether a remote ref listed under <c>refs/remotes/origin/</c>, such as <c>origin/experimental</c> or
 	/// <c>origin/tags/v1.0</c>, names a branch or tag the configuration excludes
 	/// </summary>
 	private bool IsExcludedRemoteRef(string remoteRef)
@@ -492,11 +493,11 @@ public class SvnToGitMigrator
 	/// </summary>
 	private const string GitSvnRemotePrefix = "origin/";
 
+	private const string RemoteRefsNamespace = "refs/remotes/" + GitSvnRemotePrefix;
+
 	private const string TagsPrefix = "tags/";
 
 	private const string TrunkRemoteRef = GitSvnRemotePrefix + "trunk";
-
-	private const string GitSvnRemoteRef = GitSvnRemotePrefix + "git-svn";
 
 	/// <summary>
 	/// Resolves the configured SVN repository to the URL that git-svn expects
