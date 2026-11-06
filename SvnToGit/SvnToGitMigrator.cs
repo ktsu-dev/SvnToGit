@@ -2,6 +2,7 @@
 
 namespace ktsu.SvnToGit.Core;
 
+using System.Diagnostics.CodeAnalysis;
 using System.Text.RegularExpressions;
 
 /// <summary>
@@ -45,9 +46,13 @@ public class SvnToGitMigrator
 		{
 			errors.Add("SVN repository path is required");
 		}
+		else if (LocalSvnRepositoryProblem(_config.SvnRepositoryPath) is string problem)
+		{
+			errors.Add(problem);
+		}
 		else if (ResolveSvnUrl(_config.SvnRepositoryPath) is null)
 		{
-			errors.Add($"SVN repository must be an http://, https://, svn://, svn+ssh:// or file:// URL, or an existing local directory: {_config.SvnRepositoryPath}");
+			errors.Add($"SVN repository must be an http://, https://, svn://, svn+ssh:// or file:// URL, or the directory of a local SVN repository: {_config.SvnRepositoryPath}");
 		}
 
 		if (string.IsNullOrWhiteSpace(_config.GitRepositoryPath))
@@ -504,21 +509,55 @@ public class SvnToGitMigrator
 	/// </summary>
 	/// <param name="svnRepositoryPath">An SVN URL, or the path of a local SVN repository</param>
 	/// <returns>
-	/// The URL unchanged when it has a scheme git-svn can reach, a <c>file://</c> URL for an existing local
-	/// directory, or <see langword="null"/> when it is neither
+	/// The URL unchanged when it has a scheme git-svn can reach, a <c>file://</c> URL for the directory of a local
+	/// SVN repository, or <see langword="null"/> when it is neither
 	/// </returns>
 	internal static string? ResolveSvnUrl(string svnRepositoryPath)
 	{
-		// Require an explicit scheme, because a bare Unix path such as /srv/svn parses as an absolute file URI
-		if (svnRepositoryPath.Contains("://", StringComparison.Ordinal)
-			&& Uri.TryCreate(svnRepositoryPath, UriKind.Absolute, out Uri? uri))
+		if (IsUrl(svnRepositoryPath, out Uri? uri))
 		{
 			return SupportedSvnSchemes.Contains(uri.Scheme) ? svnRepositoryPath : null;
 		}
 
-		return Directory.Exists(svnRepositoryPath)
+		return Directory.Exists(svnRepositoryPath) && IsSvnRepositoryDirectory(svnRepositoryPath)
 			? new Uri(Path.GetFullPath(svnRepositoryPath)).AbsoluteUri
 			: null;
+	}
+
+	/// <summary>
+	/// Explains why an existing local directory given as the SVN repository can't be opened by git-svn
+	/// </summary>
+	/// <remarks>
+	/// git-svn opens a <c>file://</c> URL through Subversion's <c>ra_local</c> layer, which reads only a repository
+	/// made by <c>svnadmin create</c>: a directory holding a <c>format</c> file and a <c>db</c> directory. A working copy
+	/// from <c>svn checkout</c> holds a <c>.svn</c> directory instead.
+	/// </remarks>
+	/// <param name="svnRepositoryPath">The configured SVN repository</param>
+	/// <returns>
+	/// The validation error for a working copy or a directory that isn't an SVN repository, or <see langword="null"/>
+	/// when the path is a URL, doesn't exist, or is the directory of an SVN repository
+	/// </returns>
+	internal static string? LocalSvnRepositoryProblem(string svnRepositoryPath)
+	{
+		if (IsUrl(svnRepositoryPath, out _) || !Directory.Exists(svnRepositoryPath) || IsSvnRepositoryDirectory(svnRepositoryPath))
+		{
+			return null;
+		}
+
+		return Directory.Exists(Path.Combine(svnRepositoryPath, ".svn"))
+			? $"SVN repository is a working copy, not a repository: {svnRepositoryPath}. Give its repository URL instead, which `svn info --show-item repos-root-url` prints"
+			: $"SVN repository directory is not an SVN repository (it has no format file and db directory): {svnRepositoryPath}";
+	}
+
+	private static bool IsSvnRepositoryDirectory(string directory) =>
+		File.Exists(Path.Combine(directory, "format")) && Directory.Exists(Path.Combine(directory, "db"));
+
+	// Require an explicit scheme, because a bare Unix path such as /srv/svn parses as an absolute file URI
+	private static bool IsUrl(string svnRepositoryPath, [NotNullWhen(true)] out Uri? uri)
+	{
+		uri = null;
+		return svnRepositoryPath.Contains("://", StringComparison.Ordinal)
+			&& Uri.TryCreate(svnRepositoryPath, UriKind.Absolute, out uri);
 	}
 
 	private static readonly HashSet<string> SupportedSvnSchemes = new(StringComparer.OrdinalIgnoreCase)
