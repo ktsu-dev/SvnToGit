@@ -15,7 +15,7 @@ A guided .NET 10 CLI that migrates a Subversion repository to Git, wrapping `git
 `SvnToGit.Cli` is a menu-driven TUI that walks a user through:
 
 1. **Clone** — runs `git svn clone <svn-path> <git-path> --stdlayout`, with optional `--authors-file` and `--preserve-empty-dirs`.
-2. **Cleanup refs** — converts the remote `git-svn` branches into local Git branches.
+2. **Cleanup refs** — converts the remote `git-svn` branches into local Git branches and SVN tags into Git tags. A name that is already taken gets an `svn-` prefix with a warning: a branch named like an existing branch, or a tag named like a branch (such as `branches/1.0` and `tags/1.0`), so no name is left ambiguous.
 3. **Finalize** — runs `git gc --aggressive`.
 4. **Report** — exit status with the path of the new Git repository.
 
