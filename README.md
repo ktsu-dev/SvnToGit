@@ -24,7 +24,7 @@ Built on top of `git svn`, so anything `git svn` can do, this tool can do — bu
 ## Prerequisites
 
 - Git with `git-svn` support on the `PATH`.
-- An SVN repository reachable as a local path or URL.
+- An SVN repository reachable as a URL, or as the local directory of the repository itself (not a working copy).
 - Disk space for the cloned Git repo.
 - .NET 10 SDK.
 
@@ -60,7 +60,7 @@ The TUI presents four options:
 
 | Prompt | Required | Notes |
 |---|---|---|
-| SVN repository URL or local path | yes | An `http://`, `https://`, `svn://`, `svn+ssh://` or `file://` URL, or an existing local directory, which is passed to git-svn as a `file://` URL. |
+| SVN repository URL or local path | yes | An `http://`, `https://`, `svn://`, `svn+ssh://` or `file://` URL, or the directory of a local repository made by `svnadmin create`, which is passed to git-svn as a `file://` URL. A working copy from `svn checkout` is not a repository and is refused: give its repository URL instead (`svn info --show-item repos-root-url`). |
 | Git repository path | no | Defaults to `<name>-git`, where `<name>` is the last segment of the URL or path. |
 | Authors file | no | One mapping per line: `svnuser = Full Name <email@example.com>`. |
 | Preserve empty directories | no | Defaults to `yes`. |

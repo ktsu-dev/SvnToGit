@@ -55,8 +55,7 @@ public class SvnRepositoryUrlTests
 	[TestMethod]
 	public void ResolveSvnUrl_ExistingLocalDirectory_BecomesFileUrl()
 	{
-		string directory = Path.Combine(Path.GetTempPath(), $"svn repo {Guid.NewGuid():N}");
-		Directory.CreateDirectory(directory);
+		string directory = SvnRepositoryFixture.CreateRepositoryDirectory();
 
 		try
 		{
@@ -68,9 +67,102 @@ public class SvnRepositoryUrlTests
 		}
 		finally
 		{
-			Directory.Delete(directory);
+			Directory.Delete(directory, recursive: true);
 		}
 	}
+
+	[TestMethod]
+	public void ValidateConfiguration_SvnRepositoryDirectory_ReportsNoRepositoryError()
+	{
+		string directory = SvnRepositoryFixture.CreateRepositoryDirectory();
+
+		try
+		{
+			IReadOnlyList<string> errors = ValidateWithSvnPath(directory);
+
+			Assert.IsFalse(errors.Any(e => e.StartsWith("SVN repository", StringComparison.Ordinal)), string.Join(Environment.NewLine, errors));
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public void ValidateConfiguration_SvnWorkingCopy_ReportsWorkingCopyError()
+	{
+		string directory = SvnRepositoryFixture.CreateTempDirectory();
+		Directory.CreateDirectory(Path.Combine(directory, ".svn"));
+
+		try
+		{
+			IReadOnlyList<string> errors = ValidateWithSvnPath(directory);
+
+			Assert.IsTrue(
+				errors.Any(e => e.Contains("working copy", StringComparison.Ordinal) && e.Contains(directory, StringComparison.Ordinal)),
+				string.Join(Environment.NewLine, errors));
+			Assert.IsNull(SvnToGitMigrator.ResolveSvnUrl(directory));
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public void ValidateConfiguration_DirectoryWithoutRepositoryMarkers_ReportsNotARepository()
+	{
+		string directory = SvnRepositoryFixture.CreateTempDirectory();
+
+		try
+		{
+			IReadOnlyList<string> errors = ValidateWithSvnPath(directory);
+
+			Assert.IsTrue(
+				errors.Any(e => e.Contains("not an SVN repository", StringComparison.Ordinal) && e.Contains(directory, StringComparison.Ordinal)),
+				string.Join(Environment.NewLine, errors));
+			Assert.IsNull(SvnToGitMigrator.ResolveSvnUrl(directory));
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public async Task MigrateAsync_SvnWorkingCopy_FailsBeforeCreatingTheGitFolder()
+	{
+		string directory = SvnRepositoryFixture.CreateTempDirectory();
+		Directory.CreateDirectory(Path.Combine(directory, ".svn"));
+		string gitPath = Path.Combine(Path.GetTempPath(), $"svn-wc-git-{Guid.NewGuid():N}");
+
+		try
+		{
+			SvnToGitMigrator migrator = new(new SvnMigrationConfig
+			{
+				SvnRepositoryPath = directory,
+				GitRepositoryPath = gitPath,
+			});
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsFalse(result.Success);
+			Assert.IsFalse(Directory.Exists(gitPath));
+		}
+		finally
+		{
+			Directory.Delete(directory, recursive: true);
+		}
+	}
+
+	public TestContext TestContext { get; set; } = null!;
+
+	private static IReadOnlyList<string> ValidateWithSvnPath(string svnPath) =>
+		new SvnToGitMigrator(new SvnMigrationConfig
+		{
+			SvnRepositoryPath = svnPath,
+			GitRepositoryPath = Path.Combine(Path.GetTempPath(), "project-git"),
+		}).ValidateConfiguration();
 
 	[TestMethod]
 	public void DefaultGitPath_ServerUrl_IsNamedAfterTheLastSegment()

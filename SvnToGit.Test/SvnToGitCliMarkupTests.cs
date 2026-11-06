@@ -106,8 +106,7 @@ public class SvnToGitCliMarkupTests
 	[TestMethod]
 	public async Task RunMigrationAsync_GitFailsWithBracketedError_ReportsTheError()
 	{
-		string directory = Path.Combine(Path.GetTempPath(), $"svntogit-{Guid.NewGuid():N}");
-		Directory.CreateDirectory(directory);
+		string directory = SvnRepositoryFixture.CreateRepositoryDirectory();
 
 		try
 		{
@@ -180,8 +179,7 @@ public class SvnToGitCliMarkupTests
 	[TestMethod]
 	public async Task RunMigrationAsync_GarbageCollectionFails_ReportsTheWarning()
 	{
-		string directory = Path.Combine(Path.GetTempPath(), $"svntogit-{Guid.NewGuid():N}");
-		Directory.CreateDirectory(directory);
+		string directory = SvnRepositoryFixture.CreateRepositoryDirectory();
 
 		try
 		{
