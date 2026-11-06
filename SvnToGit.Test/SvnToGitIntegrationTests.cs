@@ -129,6 +129,47 @@ public class SvnToGitIntegrationTests
 		}
 	}
 
+	[TestMethod]
+	public async Task MigrateAsync_SvnBranchAndTagWithTheSameName_LeavesNoAmbiguousRef()
+	{
+		await AssertSvnToolsAvailableAsync().ConfigureAwait(false);
+
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			string svnRepository = Path.Combine(directory, "svn");
+			await CreateSvnRepositoryAsync(directory, svnRepository).ConfigureAwait(false);
+			string url = new Uri(Path.GetFullPath(svnRepository)).AbsoluteUri;
+			await RunAsync("svn", "copy", "--quiet", "-m", "Tag feature", $"{url}/branches/feature", $"{url}/tags/feature").ConfigureAwait(false);
+
+			string gitRepository = Path.Combine(directory, "git");
+			SvnToGitMigrator migrator = new(new SvnMigrationConfig
+			{
+				SvnRepositoryPath = svnRepository,
+				GitRepositoryPath = gitRepository,
+			});
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsTrue(result.Success, string.Join(Environment.NewLine, result.Errors));
+			Assert.Contains("Cleanup: SVN tag feature was migrated as tag svn-feature, because a branch named feature already exists", result.Warnings);
+			string tags = await RunAsync("git", "-C", gitRepository, "for-each-ref", "--format=%(refname:short)", "refs/tags").ConfigureAwait(false);
+			CollectionAssert.AreEquivalent(ExpectedRenamedTag, tags.Split('\n', StringSplitOptions.RemoveEmptyEntries));
+
+			// With refs/heads/feature alone, the name resolves without git warning that it is ambiguous
+			ProcessResult revParse = await ProcessRunner.RunCommandAsync("git", ["-C", gitRepository, "rev-parse", "feature"], TestContext.CancellationToken).ConfigureAwait(false);
+			Assert.AreEqual(0, revParse.ExitCode, revParse.StandardError);
+			Assert.DoesNotContain("ambiguous", revParse.StandardError);
+		}
+		finally
+		{
+			DeleteDirectory(directory);
+		}
+	}
+
+	private static readonly string[] ExpectedRenamedTag = ["svn-feature"];
+
 	/// <summary>
 	/// Creates an SVN repository at <paramref name="svnRepository"/> with the standard layout, a
 	/// <c>readme.txt</c> committed to trunk, and a <c>feature</c> branch copied from trunk.
