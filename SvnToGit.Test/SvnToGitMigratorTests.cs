@@ -364,6 +364,46 @@ public class SvnToGitMigratorTests
 	}
 
 	[TestMethod]
+	public async Task MigrateAsync_SvnTagNamedLikeABranch_MigratesTheTagUnderAnotherNameWithAWarning()
+	{
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			SvnMigrationConfig config = CreateConfig(directory);
+			await CreateGitSvnCloneAsync(config.GitRepositoryPath).ConfigureAwait(false);
+
+			// tags/feature shares its name with an SVN branch, and tags/master with the trunk branch git-svn made.
+			// tags/svn-feature already takes the first free name, so the renamed tag has to skip it.
+			string trunk = await GitAsync(config.GitRepositoryPath, "rev-parse", "HEAD").ConfigureAwait(false);
+			foreach (string tag in new[] { "feature", "master", "svn-feature" })
+			{
+				string commit = await CommitTreeAsync(config.GitRepositoryPath, trunk, $"Create tag {tag}").ConfigureAwait(false);
+				await GitAsync(config.GitRepositoryPath, "update-ref", $"refs/remotes/origin/tags/{tag}", commit).ConfigureAwait(false);
+			}
+
+			SvnToGitMigrator migrator = new(config, RealGitRunnerWithStubbedSvn());
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsTrue(result.Success, string.Join(Environment.NewLine, result.Errors));
+			string tags = await GitAsync(config.GitRepositoryPath, "tag", "--list").ConfigureAwait(false);
+			CollectionAssert.AreEquivalent(ExpectedTagsWithRenames, tags.Split('\n'));
+			string branches = await GitAsync(config.GitRepositoryPath, "for-each-ref", "--format=%(refname:short)", "refs/heads").ConfigureAwait(false);
+			CollectionAssert.IsSubsetOf(BranchesSharingATagName, branches.Split('\n'));
+
+			// svn-feature is the SVN tag of that name; the tag renamed from feature takes the next free name
+			Assert.Contains("Cleanup: SVN tag feature was migrated as tag svn-feature-2, because a branch named feature already exists", result.Warnings);
+			Assert.Contains("Cleanup: SVN tag master was migrated as tag svn-master, because a branch named master already exists", result.Warnings);
+			Assert.HasCount(2, result.Warnings, string.Join(Environment.NewLine, result.Warnings));
+		}
+		finally
+		{
+			DeleteDirectory(directory);
+		}
+	}
+
+	[TestMethod]
 	public async Task MigrateAsync_SvnBranchNamedLikeAnExistingLocalBranch_MigratesItUnderAnotherNameWithAWarning()
 	{
 		string directory = CreateTempDirectory();
@@ -457,6 +497,10 @@ public class SvnToGitMigratorTests
 	[TestMethod]
 	public void BuildIgnoreRefsRegex_NothingExcluded_ReturnsNull() =>
 		Assert.IsNull(SvnToGitMigrator.BuildIgnoreRefsRegex([" "], []));
+
+	private static readonly string[] ExpectedTagsWithRenames = ["1.0", "2.0", "svn-feature", "svn-feature-2", "svn-master"];
+
+	private static readonly string[] BranchesSharingATagName = ["master", "feature"];
 
 	private static SvnMigrationConfig CreateConfig(string directory) => new()
 	{

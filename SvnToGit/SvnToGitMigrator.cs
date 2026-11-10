@@ -268,26 +268,46 @@ public class SvnToGitMigrator
 			.Where(line => line is not TrunkRemoteRef)
 			.Where(line => !IsExcludedRemoteRef(line))];
 
-		foreach (string remoteRef in remoteRefs)
+		List<string> branchRefs = [.. remoteRefs.Where(remoteRef => !IsTagRef(remoteRef))];
+		List<string> tagRefs = [.. remoteRefs.Where(IsTagRef)];
+
+		// Create every branch before any tag, so a tag is checked against the full set of branch names
+		// whatever order the refs are listed in (origin/tags/* sorts before most branch names)
+		foreach (string remoteRef in branchRefs)
 		{
 			string name = remoteRef[GitSvnRemotePrefix.Length..];
-			GitCommandResult refResult;
-			if (name.StartsWith(TagsPrefix, StringComparison.Ordinal))
+			string branchName = UnusedBranchName(name, takenBranchNames);
+			if (branchName != name)
 			{
-				refResult = await CreateTagAsync(name[TagsPrefix.Length..], remoteRef, progress, cancellationToken).ConfigureAwait(false);
-			}
-			else
-			{
-				string branchName = UnusedBranchName(name, takenBranchNames);
-				if (branchName != name)
-				{
-					warnings.Add($"Cleanup: SVN branch {name} was migrated as {branchName}, because a branch named {name} already exists");
-				}
-
-				refResult = await CreateBranchAsync(branchName, remoteRef, progress, cancellationToken).ConfigureAwait(false);
-				takenBranchNames.Add(branchName);
+				warnings.Add($"Cleanup: SVN branch {name} was migrated as {branchName}, because a branch named {name} already exists");
 			}
 
+			GitCommandResult refResult = await CreateBranchAsync(branchName, remoteRef, progress, cancellationToken).ConfigureAwait(false);
+			if (!refResult.Success)
+			{
+				return refResult;
+			}
+
+			takenBranchNames.Add(branchName);
+		}
+
+		// A tag named like a branch would leave refs/heads/<name> and refs/tags/<name> side by side, which
+		// git reports as ambiguous and refuses to push by name, so rename the tag. Its new name must not be
+		// another branch's, nor another SVN tag's.
+		HashSet<string> tagNames = [.. tagRefs.Select(remoteRef => remoteRef[(GitSvnRemotePrefix.Length + TagsPrefix.Length)..])];
+		HashSet<string> takenNames = [.. takenBranchNames, .. tagNames];
+		foreach (string remoteRef in tagRefs)
+		{
+			string name = remoteRef[(GitSvnRemotePrefix.Length + TagsPrefix.Length)..];
+			string tagName = name;
+			if (takenBranchNames.Contains(name))
+			{
+				tagName = UnusedBranchName(name, takenNames);
+				takenNames.Add(tagName);
+				warnings.Add($"Cleanup: SVN tag {name} was migrated as tag {tagName}, because a branch named {name} already exists");
+			}
+
+			GitCommandResult refResult = await CreateTagAsync(tagName, remoteRef, progress, cancellationToken).ConfigureAwait(false);
 			if (!refResult.Success)
 			{
 				return refResult;
@@ -488,6 +508,9 @@ public class SvnToGitMigrator
 			? ExclusionNames(_config.ExcludeTags).Contains(name[TagsPrefix.Length..], StringComparer.Ordinal)
 			: ExclusionNames(_config.ExcludeBranches).Contains(name, StringComparer.Ordinal);
 	}
+
+	private static bool IsTagRef(string remoteRef) =>
+		remoteRef[GitSvnRemotePrefix.Length..].StartsWith(TagsPrefix, StringComparison.Ordinal);
 
 	private static IEnumerable<string> ExclusionNames(IEnumerable<string> names) =>
 		names.Select(name => name.Trim()).Where(name => name.Length > 0);
