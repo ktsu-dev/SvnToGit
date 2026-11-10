@@ -599,12 +599,8 @@ public class SvnToGitMigratorTests
 		Directory.Delete(directory, recursive: true);
 	}
 
-	private static string CreateTempDirectory()
-	{
-		string directory = Path.Combine(Path.GetTempPath(), $"svntogit-{Guid.NewGuid():N}");
-		Directory.CreateDirectory(directory);
-		return directory;
-	}
+	// Each test migrates from its own directory, so lay it out as a local SVN repository to pass validation
+	private static string CreateTempDirectory() => SvnRepositoryFixture.CreateRepositoryDirectory();
 
 	/// <summary>
 	/// Reports progress on the calling thread, unlike <see cref="Progress{T}"/>, so the reports are
