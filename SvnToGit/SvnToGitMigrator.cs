@@ -240,9 +240,13 @@ public class SvnToGitMigrator
 			return localBranchesResult;
 		}
 
-		HashSet<string> takenBranchNames = [.. localBranchesResult.StandardOutput
-			.Split('\n', StringSplitOptions.RemoveEmptyEntries)
-			.Select(line => line.Trim())];
+		// Compared without case, because on NTFS and APFS refs/heads/Master is the same file as
+		// refs/heads/master, and a clone of the result there could not hold both
+		HashSet<string> takenBranchNames = new(
+			localBranchesResult.StandardOutput
+				.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+				.Select(line => line.Trim()),
+			StringComparer.OrdinalIgnoreCase);
 
 		// Convert remote branches to local branches. List them with plumbing, because git branch -r follows
 		// the user's color.ui and column.ui settings even when its output is not a terminal.

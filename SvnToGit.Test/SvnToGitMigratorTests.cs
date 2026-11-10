@@ -394,6 +394,51 @@ public class SvnToGitMigratorTests
 	}
 
 	[TestMethod]
+	[DataRow("Master")]
+	[DataRow("MASTER")]
+	public async Task MigrateAsync_SvnBranchNamedLikeAnExistingLocalBranchButForCase_MigratesItUnderAnotherNameWithAWarning(string svnBranch)
+	{
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			SvnMigrationConfig config = CreateConfig(directory);
+			await CreateGitSvnCloneAsync(config.GitRepositoryPath).ConfigureAwait(false);
+
+			// On NTFS and APFS refs/heads/Master is the same file as refs/heads/master, so creating it fails
+			// there; listing the refs keeps this check meaningful on a case-sensitive filesystem too
+			string trunk = await GitAsync(config.GitRepositoryPath, "rev-parse", "master").ConfigureAwait(false);
+			string svnCommit = await CommitTreeAsync(config.GitRepositoryPath, trunk, $"Create branch {svnBranch}").ConfigureAwait(false);
+			await GitAsync(config.GitRepositoryPath, "update-ref", $"refs/remotes/origin/{svnBranch}", svnCommit).ConfigureAwait(false);
+			SvnToGitMigrator migrator = new(config, RealGitRunnerWithStubbedSvn());
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsTrue(result.Success, string.Join(Environment.NewLine, result.Errors));
+			string branches = await GitAsync(config.GitRepositoryPath, "for-each-ref", "--format=%(refname:short)", "refs/heads").ConfigureAwait(false);
+			string[] branchNames = branches.Split('\n');
+			CollectionAssert.Contains(branchNames, $"svn-{svnBranch}");
+			CollectionAssert.DoesNotContain(branchNames, svnBranch);
+			Assert.AreEqual(trunk, await GitAsync(config.GitRepositoryPath, "rev-parse", "refs/heads/master").ConfigureAwait(false));
+			Assert.AreEqual(svnCommit, await GitAsync(config.GitRepositoryPath, "rev-parse", $"refs/heads/svn-{svnBranch}").ConfigureAwait(false));
+			Assert.HasCount(1, result.Warnings);
+			Assert.Contains($"svn-{svnBranch}", result.Warnings[0]);
+		}
+		finally
+		{
+			DeleteDirectory(directory);
+		}
+	}
+
+	[TestMethod]
+	public void UnusedBranchName_NameTakenButForCase_IsTakenInACaseInsensitiveSet()
+	{
+		HashSet<string> taken = new(StringComparer.OrdinalIgnoreCase) { "master", "svn-master" };
+
+		Assert.AreEqual("svn-Master-2", SvnToGitMigrator.UnusedBranchName("Master", taken));
+	}
+
+	[TestMethod]
 	public void UnusedBranchName_NameAndPrefixedNameTaken_AddsASuffix()
 	{
 		Assert.AreEqual("feature", SvnToGitMigrator.UnusedBranchName("feature", ["master"]));
