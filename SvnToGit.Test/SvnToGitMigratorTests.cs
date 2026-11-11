@@ -415,11 +415,14 @@ public class SvnToGitMigratorTests
 
 			// On NTFS and APFS refs/tags/V1.0 is the same file as refs/tags/v1.0, so both can't be created there.
 			// tags/svn-v1.0 already takes the first free name, compared without case, so the renamed tag skips it.
+			// Each remote ref is packed as soon as it is written, as git-svn's gc --auto does, so that v1.0 and
+			// V1.0 can both be seeded on a case-insensitive filesystem rather than one loose file overwriting the other.
 			string trunk = await GitAsync(config.GitRepositoryPath, "rev-parse", "HEAD").ConfigureAwait(false);
 			foreach (string tag in new[] { "v1.0", "V1.0", "svn-v1.0" })
 			{
 				string commit = await CommitTreeAsync(config.GitRepositoryPath, trunk, $"Create tag {tag}").ConfigureAwait(false);
 				await GitAsync(config.GitRepositoryPath, "update-ref", $"refs/remotes/origin/tags/{tag}", commit).ConfigureAwait(false);
+				await GitAsync(config.GitRepositoryPath, "pack-refs", "--all").ConfigureAwait(false);
 			}
 
 			SvnToGitMigrator migrator = new(config, RealGitRunnerWithStubbedSvn());
