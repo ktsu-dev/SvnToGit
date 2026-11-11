@@ -404,6 +404,44 @@ public class SvnToGitMigratorTests
 	}
 
 	[TestMethod]
+	public async Task MigrateAsync_SvnTagsDifferingOnlyByCase_MigratesTheSecondUnderAnotherNameWithAWarning()
+	{
+		string directory = CreateTempDirectory();
+
+		try
+		{
+			SvnMigrationConfig config = CreateConfig(directory);
+			await CreateGitSvnCloneAsync(config.GitRepositoryPath).ConfigureAwait(false);
+
+			// On NTFS and APFS refs/tags/V1.0 is the same file as refs/tags/v1.0, so both can't be created there.
+			// tags/svn-v1.0 already takes the first free name, compared without case, so the renamed tag skips it.
+			string trunk = await GitAsync(config.GitRepositoryPath, "rev-parse", "HEAD").ConfigureAwait(false);
+			foreach (string tag in new[] { "v1.0", "V1.0", "svn-v1.0" })
+			{
+				string commit = await CommitTreeAsync(config.GitRepositoryPath, trunk, $"Create tag {tag}").ConfigureAwait(false);
+				await GitAsync(config.GitRepositoryPath, "update-ref", $"refs/remotes/origin/tags/{tag}", commit).ConfigureAwait(false);
+			}
+
+			SvnToGitMigrator migrator = new(config, RealGitRunnerWithStubbedSvn());
+
+			MigrationResult result = await migrator.MigrateAsync(cancellationToken: TestContext.CancellationToken).ConfigureAwait(false);
+
+			Assert.IsTrue(result.Success, string.Join(Environment.NewLine, result.Errors));
+
+			// for-each-ref lists V1.0 before v1.0, so V1.0 keeps its name and v1.0 is renamed. Checked with
+			// for-each-ref rather than by creating the clash, so this holds on a case-sensitive filesystem too.
+			string tags = await GitAsync(config.GitRepositoryPath, "for-each-ref", "--format=%(refname:short)", "refs/tags").ConfigureAwait(false);
+			CollectionAssert.AreEquivalent(ExpectedTagsWithCaseRenames, tags.Split('\n'));
+			Assert.Contains("Cleanup: SVN tag v1.0 was migrated as tag svn-v1.0-2, because a tag named V1.0 already exists", result.Warnings);
+			Assert.HasCount(1, result.Warnings, string.Join(Environment.NewLine, result.Warnings));
+		}
+		finally
+		{
+			DeleteDirectory(directory);
+		}
+	}
+
+	[TestMethod]
 	public async Task MigrateAsync_SvnBranchNamedLikeAnExistingLocalBranch_MigratesItUnderAnotherNameWithAWarning()
 	{
 		string directory = CreateTempDirectory();
@@ -499,6 +537,8 @@ public class SvnToGitMigratorTests
 		Assert.IsNull(SvnToGitMigrator.BuildIgnoreRefsRegex([" "], []));
 
 	private static readonly string[] ExpectedTagsWithRenames = ["1.0", "2.0", "svn-feature", "svn-feature-2", "svn-master"];
+
+	private static readonly string[] ExpectedTagsWithCaseRenames = ["1.0", "2.0", "V1.0", "svn-v1.0", "svn-v1.0-2"];
 
 	private static readonly string[] BranchesSharingATagName = ["master", "feature"];
 
