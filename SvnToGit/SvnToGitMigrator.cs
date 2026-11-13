@@ -298,9 +298,12 @@ public class SvnToGitMigrator
 
 		// A tag named like a branch would leave refs/heads/<name> and refs/tags/<name> side by side, which
 		// git reports as ambiguous and refuses to push by name, so rename the tag. Its new name must not be
-		// another branch's, nor another SVN tag's.
-		HashSet<string> tagNames = [.. tagRefs.Select(remoteRef => remoteRef[(GitSvnRemotePrefix.Length + TagsPrefix.Length)..])];
-		HashSet<string> takenNames = [.. takenBranchNames, .. tagNames];
+		// another branch's, nor another SVN tag's. Tags are compared without case like branches, because on
+		// NTFS and APFS refs/tags/V1.0 is the same file as refs/tags/v1.0, so the second of two SVN tags that
+		// differ only by case is renamed too.
+		IEnumerable<string> tagNames = tagRefs.Select(remoteRef => remoteRef[(GitSvnRemotePrefix.Length + TagsPrefix.Length)..]);
+		HashSet<string> takenNames = new([.. takenBranchNames, .. tagNames], StringComparer.OrdinalIgnoreCase);
+		HashSet<string> createdTagNames = new(StringComparer.OrdinalIgnoreCase);
 		foreach (string remoteRef in tagRefs)
 		{
 			string name = remoteRef[(GitSvnRemotePrefix.Length + TagsPrefix.Length)..];
@@ -311,6 +314,15 @@ public class SvnToGitMigrator
 				takenNames.Add(tagName);
 				warnings.Add($"Cleanup: SVN tag {name} was migrated as tag {tagName}, because a branch named {name} already exists");
 			}
+			else if (createdTagNames.Contains(name))
+			{
+				string existing = createdTagNames.First(created => string.Equals(created, name, StringComparison.OrdinalIgnoreCase));
+				tagName = UnusedBranchName(name, takenNames);
+				takenNames.Add(tagName);
+				warnings.Add($"Cleanup: SVN tag {name} was migrated as tag {tagName}, because a tag named {existing} already exists");
+			}
+
+			createdTagNames.Add(tagName);
 
 			GitCommandResult refResult = await CreateTagAsync(tagName, remoteRef, progress, cancellationToken).ConfigureAwait(false);
 			if (!refResult.Success)
