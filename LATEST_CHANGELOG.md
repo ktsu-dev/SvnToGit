@@ -1,7 +1,6 @@
-## v2.3.2-pre.1 (prerelease)
+## v2.3.2 (patch)
 
 Changes since v2.3.1:
 
-- Bump MSTest.Sdk from 4.5.2 to 4.5.3 (dependabot[bot])
-- Bump the ktsu group with 9 updates (dependabot[bot])
+- Rename an SVN tag that differs from another only by case [patch] (#167) (matt-edmondson)
 
