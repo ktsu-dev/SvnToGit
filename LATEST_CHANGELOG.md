@@ -1,6 +1,6 @@
-## v2.3.3-pre.1 (prerelease)
+## v2.3.3-pre.2 (prerelease)
 
-Changes since v2.3.2:
+Changes since v2.3.3-pre.1:
 
-- Bump the ktsu group with 11 updates (dependabot[bot])
+- Bump Polyfill from 11.4.5 to 12.0.0 (dependabot[bot])
 
